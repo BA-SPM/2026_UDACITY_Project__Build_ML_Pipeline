@@ -3,6 +3,7 @@
 
 # Personal exclusions for this workspace:
 00_Projekt_Walktrough.md
+CONDA_WORKAROUND.md
 
 
 # Ignore the following files and directories:

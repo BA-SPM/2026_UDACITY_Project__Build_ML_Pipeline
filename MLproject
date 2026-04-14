@@ -1,5 +1,10 @@
 name: nyc_airbnb
-conda_env: conda.yml
+# NOTE: env_manager set to 'local' for all mlflow.run() calls.
+# Reason: Corporate firewall blocks conda-forge channel (HTTP 000).
+# All required packages must be present in the active Python environment.
+# See environment.yml for the full list of required packages.
+# To set up the environment: pip install -r requirements.txt (or use .venv)
+# conda_env: conda.yml  <- disabled: use env_manager='local' instead
 
 entry_points:
   main:
@@ -15,4 +20,4 @@ entry_points:
         type: str
         default: ''
 
-    command: "python main.py main.steps=\\'{steps}\\' $(echo {hydra_options})"
+    command: "python main.py main.steps={steps}"

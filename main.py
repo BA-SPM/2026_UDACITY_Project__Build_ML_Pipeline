@@ -3,7 +3,7 @@ import json
 import mlflow
 import tempfile
 import os
-# import wandb
+import wandb
 import hydra
 from omegaconf import DictConfig
 
@@ -41,12 +41,15 @@ def go(config: DictConfig):
             _ = mlflow.run(
                 f"{config['main']['components_repository']}/get_data",
                 "main",
-                env_manager="conda",
+                # NOTE: env_manager='local' used throughout this project.
+                # Corporate firewall blocks conda-forge — all dependencies
+                # must be pre-installed in the active Python environment.
+                env_manager="local",
                 parameters={
                     "sample": config["etl"]["sample"],
                     "artifact_name": "sample.csv",
                     "artifact_type": "raw_data",
-                    "artifact_description": "Raw file as downloaded"
+                    "artifact_description": "Raw_file_as_downloaded"
                 },
             )
 
