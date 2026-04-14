@@ -3,7 +3,7 @@ import json
 import mlflow
 import tempfile
 import os
-import wandb
+# import wandb
 import hydra
 from omegaconf import DictConfig
 
@@ -16,12 +16,13 @@ _steps = [
     # NOTE: We do not include this in the steps so it is not run by mistake.
     # You first need to promote a model export to "prod" before you can run this,
     # then you need to run this step explicitly
-#    "test_regression_model"
+    #    "test_regression_model"
 ]
 
 
 # This automatically reads in the configuration
-@hydra.main(version_base=None, config_name='config', config_path='.')  # Adding version_base for Python 3.13 compatibility
+# Adding version_base for Python 3.13 compatibility
+@hydra.main(version_base=None, config_name='config', config_path='.')
 def go(config: DictConfig):
 
     # Setup the wandb experiment. All runs will be grouped under this name

@@ -9,6 +9,7 @@ exclude =
     .venv,
     __pycache__,
     .pytest_cache,
+    cookie-mlflow-step,
     *.egg-info
 
 per-file-ignores =

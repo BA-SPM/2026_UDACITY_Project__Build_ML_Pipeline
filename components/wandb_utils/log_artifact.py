@@ -1,5 +1,5 @@
 import wandb
-import mlflow
+# import mlflow
 
 
 def log_artifact(artifact_name, artifact_type, artifact_description, filename, wandb_run):
@@ -8,7 +8,9 @@ def log_artifact(artifact_name, artifact_type, artifact_description, filename, w
     so it can be retrieved by subsequent steps in a pipeline
 
     :param artifact_name: name for the artifact
-    :param artifact_type: type for the artifact (just a string like "raw_data", "clean_data" and so on)
+    :param artifact_type: type for the artifact (
+        just a string like "raw_data", "clean_data" and so on
+        )
     :param artifact_description: a brief description of the artifact
     :param filename: local filename for the artifact
     :param wandb_run: current Weights & Biases run

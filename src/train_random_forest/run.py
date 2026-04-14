@@ -31,7 +31,7 @@ def delta_date_feature(dates):
     between each date and the most recent date in its column
     """
     date_sanitized = pd.DataFrame(dates).apply(pd.to_datetime)
-    return date_sanitized.apply(lambda d: (d.max() -d).dt.days, axis=0).to_numpy()
+    return date_sanitized.apply(lambda d: (d.max() - d).dt.days, axis=0).to_numpy()
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
@@ -54,7 +54,7 @@ def go(args):
     ######################################
     # Use run.use_artifact(...).file() to get the train and validation artifact (args.trainval_artifact)
     # and save the returned path in train_local_path
-    trainval_local_path = # YOUR CODE HERE
+    trainval_local_path =  # YOUR CODE HERE
     ######################################
 
     X = pd.read_csv(trainval_local_path)
@@ -122,19 +122,21 @@ def go(args):
     # Upload to W&B the feture importance visualization
     run.log(
         {
-          "feature_importance": wandb.Image(fig_feat_imp),
+            "feature_importance": wandb.Image(fig_feat_imp),
         }
     )
 
 
 def plot_feature_importance(pipe, feat_names):
     # We collect the feature importance for all non-nlp features first
-    feat_imp = pipe["random_forest"].feature_importances_[: len(feat_names)-1]
+    feat_imp = pipe["random_forest"].feature_importances_[: len(feat_names) - 1]
     # For the NLP feature we sum across all the TF-IDF dimensions into a global
     # NLP importance
     nlp_importance = sum(pipe["random_forest"].feature_importances_[len(feat_names) - 1:])
-    feat_imp = np.asarray(np.append(feat_imp, nlp_importance))  # Using np.asarray for future compatibility
-    fig_feat_imp, sub_feat_imp = plt.subplots(figsize=(10, 10), layout='constrained')  # Using constrained layout
+    # Using np.asarray for future compatibility
+    feat_imp = np.asarray(np.append(feat_imp, nlp_importance))
+    fig_feat_imp, sub_feat_imp = plt.subplots(
+        figsize=(10, 10), layout='constrained')  # Using constrained layout
     sub_feat_imp.bar(np.arange(feat_imp.shape[0]), feat_imp, color="r", align="center")
     sub_feat_imp.set_xticks(np.arange(feat_imp.shape[0]))
     sub_feat_imp.set_xticklabels(feat_names, rotation=90)
@@ -156,7 +158,7 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     # Build a pipeline with two steps:
     # 1 - A SimpleImputer(strategy="most_frequent") to impute missing values
     # 2 - A OneHotEncoder() step to encode the variable
-    non_ordinal_categorical_preproc = # YOUR CODE HERE
+    non_ordinal_categorical_preproc =  # YOUR CODE HERE
     ######################################
 
     # Let's impute the numerical columns to make sure we can handle missing values
@@ -200,7 +202,7 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
             stop_words="english",
         ),
     )
-    
+
     # Let's put everything together
     preprocessor = ColumnTransformer(
         transformers=[
@@ -213,7 +215,8 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
         remainder="drop",  # This drops the columns that we do not transform
     )
 
-    processed_features = ordinal_categorical + non_ordinal_categorical + zero_imputed + ["last_review", "name"]
+    processed_features = ordinal_categorical + \
+        non_ordinal_categorical + zero_imputed + ["last_review", "name"]
 
     # Create random forest
     random_forest = RandomForestRegressor(**rf_config)
@@ -222,8 +225,9 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     # Create the inference pipeline. The pipeline must have 2 steps: a step called "preprocessor" applying the
     # ColumnTransformer instance that we saved in the `preprocessor` variable, and a step called "random_forest"
     # with the random forest instance that we just saved in the `random_forest` variable.
-    # HINT: Use the explicit Pipeline constructor so you can assign the names to the steps, do not use make_pipeline
-    sk_pipe = # YOUR CODE HERE
+    # HINT: Use the explicit Pipeline constructor so you can assign the names
+    # to the steps, do not use make_pipeline
+    sk_pipe =  # YOUR CODE HERE
 
     return sk_pipe, processed_features
 
