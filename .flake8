@@ -1,0 +1,16 @@
+[flake8]
+# Hard errors (syntax, undefined names, import issues) + style + complexity
+select = E,W,C90,F
+max-complexity = 12
+max-line-length = 100
+
+exclude =
+    .git,
+    .venv,
+    __pycache__,
+    .pytest_cache,
+    *.egg-info
+
+per-file-ignores =
+    # Fixtures injected by pytest - not undefined names
+    src/data_check/test_*.py:F811

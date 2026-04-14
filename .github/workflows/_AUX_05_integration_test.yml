@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────────────────
+# AUX Workflow: Integration Test (internal)
+# Tool:    python compileall + import checks
+# Checks:  component interfaces and internal integration on stable code paths
+#          without external services (no W&B).
+#
+# Note:    train_random_forest/run.py excluded until placeholders are filled.
+# ──────────────────────────────────────────────────────────────────
+name: AUX 05 - Internal Integration Test
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+
+jobs:
+  integration_test:
+    name: Internal Integration (Code-Only)
+    runs-on: ${{ inputs.runner_os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies (no external services)
+        run: |
+          python -m pip install --upgrade pip
+          pip install hydra-core pandas scikit-learn mlflow
+
+      - name: Compile all stable code paths
+        # train_random_forest/run.py excluded: contains unfilled placeholders
+        run: python -m compileall main.py components src/data_check src/train_random_forest/feature_engineering.py
+
+      - name: Verify module imports for internal integration
+        run: python -c "import hydra; import pandas; import sklearn; import mlflow"
+

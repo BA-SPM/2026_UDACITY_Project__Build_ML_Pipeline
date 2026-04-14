@@ -1,0 +1,51 @@
+# ──────────────────────────────────────────────────────────────────
+# AUX Workflow: E2E Test
+# Tool:    mlflow
+# Checks:  complete pipeline run from get_data to model registration
+#          including all training and evaluation steps
+#
+# Status:  PLACEHOLDER — not yet implemented
+#          Enable e2e_test_enabled in CI_CT_Pipeline_orchestrator.yml
+#          once all mlflow pipeline steps are implemented.
+#
+# Requires:
+#   - WANDB_API_KEY GitHub Actions secret
+#   - All mlflow pipeline steps implemented (no placeholder code)
+#   - Training data accessible via W&B artifacts
+# ──────────────────────────────────────────────────────────────────
+name: AUX 09 - End-to-End Test
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+
+jobs:
+  e2e_test:
+    name: Full Pipeline E2E
+    runs-on: ${{ inputs.runner_os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow wandb hydra-core pandas scikit-learn matplotlib cookiecutter
+
+      - name: Run end-to-end pipeline (placeholder)
+        # Replace with full pipeline invocation once all steps are implemented.
+        # Example: mlflow run . -P steps=all
+        run: echo "E2E pipeline test not yet implemented. Enable when ready."
+        env:
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}

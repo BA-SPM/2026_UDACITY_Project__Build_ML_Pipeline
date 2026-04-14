@@ -1,0 +1,73 @@
+# ================================================================
+# Middle-Layer Orchestrator: CI
+# ================================================================
+# Purpose:
+# - Fast quality gate for commits and pull requests
+# - Runs code-quality checks and tests
+#
+# Toggle inputs:
+# - lint_enabled        → flake8 code style + syntax errors
+# - typecheck_enabled   → mypy static type checking
+# - smoke_test_enabled  → import check + syntax compilation (code-only)
+# - unit_test_enabled   → pytest unit tests + coverage
+# ================================================================
+name: CI Middle Layer
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS for all CI jobs"
+        required: false
+        type: string
+        default: ubuntu-latest
+      lint_enabled:
+        description: "Enable flake8"
+        required: false
+        type: boolean
+        default: true
+      typecheck_enabled:
+        description: "Enable mypy"
+        required: false
+        type: boolean
+        default: true
+      smoke_test_enabled:
+        description: "Enable smoke test (import check + syntax)"
+        required: false
+        type: boolean
+        default: true
+      unit_test_enabled:
+        description: "Enable unit test (pytest + coverage)"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  lint:
+    if: ${{ inputs.lint_enabled }}
+    uses: ./.github/workflows/_AUX_01_lint.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+  typecheck:
+    needs: lint
+    if: ${{ always() && inputs.typecheck_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') }}
+    uses: ./.github/workflows/_AUX_02_typecheck.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+  smoke_test:
+    needs: lint
+    if: ${{ always() && inputs.smoke_test_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') }}
+    uses: ./.github/workflows/_AUX_03_smoke_test.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+  unit_test:
+    needs: [lint, smoke_test]
+    if: ${{ always() && inputs.unit_test_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') && (!inputs.smoke_test_enabled || needs.smoke_test.result == 'success') }}
+    uses: ./.github/workflows/_AUX_04_unit_test.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+

@@ -1,0 +1,49 @@
+# ──────────────────────────────────────────────────────────────────
+# AUX Workflow: Deployment Test
+# Tool:    mlflow + external credential checks
+# Checks:  external dependencies and credentials are valid (W&B, artifacts, mlflow wiring)
+#
+# Status:  PLACEHOLDER — not yet implemented
+#          Enable deployment_test_enabled in CI_CT_Pipeline_orchestrator.yml
+#          once external checks and secrets are configured.
+#
+# Requires:
+#   - WANDB_API_KEY GitHub Actions secret
+#   - All mlflow pipeline steps implemented (no placeholder code)
+# ──────────────────────────────────────────────────────────────────
+name: AUX 06 - Deployment Test
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+
+jobs:
+  deployment_test:
+    name: External Deployment Readiness
+    runs-on: ${{ inputs.runner_os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow wandb hydra-core pandas
+
+      - name: Run deployment test (placeholder)
+        # Replace with external readiness checks once implemented.
+        # Example: verify W&B auth + artifact pull + minimal mlflow command.
+        run: echo "Deployment test not yet implemented. Enable when ready."
+        env:
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}

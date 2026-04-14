@@ -1,0 +1,26 @@
+# ──────────────────────────────────────────────────────────────────
+# Reusable Workflow: Docker Build
+# Tool:    docker build
+# Checks:  Dockerfile builds successfully
+# Note:    Requires a Dockerfile in the project root.
+#          This job is disabled by default in ci.yml.
+# ──────────────────────────────────────────────────────────────────
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+
+jobs:
+  docker:
+    runs-on: ${{ inputs.runner_os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build . --tag ml-pipeline:ci

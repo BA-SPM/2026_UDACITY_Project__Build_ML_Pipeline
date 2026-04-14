@@ -1,0 +1,32 @@
+# ================================================================
+# Middle-Layer Orchestrator: CT
+# ================================================================
+# Purpose:
+# - Continuous Testing: deeper checks beyond CI unit tests
+#
+# Toggle inputs:
+# - ct_integration_test_enabled  → internal component integration (code-only, no W&B)
+# ================================================================
+name: CT - Internal Integration Layer
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS for all CT jobs"
+        required: false
+        type: string
+        default: ubuntu-latest
+      ct_integration_test_enabled:
+        description: "Enable internal integration test (no external services)"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  integration_test:
+    name: CT | Internal Integration Test
+    if: ${{ inputs.ct_integration_test_enabled }}
+    uses: ./.github/workflows/_AUX_05_integration_test.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}

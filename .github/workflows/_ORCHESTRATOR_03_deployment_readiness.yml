@@ -1,0 +1,73 @@
+# ================================================================
+# Middle-Layer Orchestrator: Deployment Readiness
+# ================================================================
+# Purpose:
+# - Validate deployment readiness after CI/CT
+# - Contains deployment checks, build, security, and end-to-end release checks
+#
+# Toggle inputs:
+# - deployment_test_enabled  → external systems readiness (W&B/credentials/artifacts)
+# - e2e_test_enabled         → complete pipeline run over real external components
+# - security_enabled    → bandit security scan
+# - docker_enabled      → docker build
+# ================================================================
+name: DR - Deployment and E2E Layer
+
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS for all Deployment Readiness jobs"
+        required: false
+        type: string
+        default: ubuntu-latest
+      deployment_test_enabled:
+        description: "Enable deployment/external integration checks (requires W&B)"
+        required: false
+        type: boolean
+        default: false
+      e2e_test_enabled:
+        description: "Enable full end-to-end pipeline run (requires W&B + all steps implemented)"
+        required: false
+        type: boolean
+        default: false
+      security_enabled:
+        description: "Enable bandit security scan"
+        required: false
+        type: boolean
+        default: true
+      docker_enabled:
+        description: "Enable docker build"
+        required: false
+        type: boolean
+        default: false
+jobs:
+  deployment_test:
+    name: DR | Deployment Test
+    if: ${{ inputs.deployment_test_enabled && !failure() }}
+    uses: ./.github/workflows/_AUX_06_deployment_test.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+  security:
+    name: DR | Security Scan
+    if: ${{ inputs.security_enabled }}
+    uses: ./.github/workflows/_AUX_07_security.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+  docker:
+    name: DR | Docker Build
+    if: ${{ inputs.docker_enabled && !failure() }}
+    uses: ./.github/workflows/_AUX_08_docker.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}
+
+  e2e_test:
+    name: DR | End-to-End Pipeline Test
+    needs: deployment_test
+    # Disabled until all mlflow steps are implemented and W&B is configured.
+    if: ${{ always() && inputs.e2e_test_enabled && (!inputs.deployment_test_enabled || needs.deployment_test.result == 'success') && !failure() }}
+    uses: ./.github/workflows/_AUX_09_e2e_test.yml
+    with:
+      runner_os: ${{ inputs.runner_os }}

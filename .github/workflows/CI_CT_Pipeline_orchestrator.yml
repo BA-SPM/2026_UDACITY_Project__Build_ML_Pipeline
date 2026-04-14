@@ -1,0 +1,147 @@
+# ================================================================
+# High-Level Orchestrator
+# ================================================================
+# Purpose:
+# - Control execution mode: CI / CI+CT / Full
+# - Delegate details to three middle layers:
+#   1) _ORCHESTRATOR_01_ci.yml
+#   2) _ORCHESTRATOR_02_ct.yml
+#   3) _ORCHESTRATOR_03_deployment_readiness.yml
+#
+# Modes:
+# - ci:       Run CI middle layer only
+# - ci_ct:    Run CI middle layer, then CT middle layer (internal integration)
+# - full:     Run CI middle layer, then CT, then Deployment Readiness + E2E
+#
+# Default behavior:
+# - push / pull_request: run CI only
+# - manual dispatch: choose mode from dropdown
+# ================================================================
+name: CI & CT & DR - Pipeline Orchestrator
+
+# Central OS control:
+# - Edit OS_MATRIX in one place.
+# - Valid values include: ubuntu-latest, windows-latest, macos-latest.
+env:
+  OS_MATRIX: '["windows-latest", "ubuntu-latest"]'
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Execution mode"
+        required: true
+        default: ci
+        type: choice
+        options:
+          - ci
+          - ci_ct
+          - full
+
+jobs:
+  # --------------------------------------------------------------
+  # Resolve execution flags from mode selection
+  # --------------------------------------------------------------
+  resolve_execution_flags:
+    # Use first OS from central matrix for the control job.
+    runs-on: ${{ fromJSON(env.OS_MATRIX)[0] }}
+    outputs:
+      run_ci: ${{ steps.flags.outputs.run_ci }}
+      run_ct: ${{ steps.flags.outputs.run_ct }}
+      run_dr: ${{ steps.flags.outputs.run_dr }}
+    steps:
+      - name: Resolve CI/CT/DR flags
+        id: flags
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -ne "workflow_dispatch") {
+            "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "run_ct=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            "run_dr=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            exit 0
+          }
+
+          switch ("${{ github.event.inputs.mode }}") {
+            "ci" {
+              "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "run_ct=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "run_dr=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              break
+            }
+            "ci_ct" {
+              "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "run_ct=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "run_dr=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              break
+            }
+            "full" {
+              "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "run_ct=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              "run_dr=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+              break
+            }
+            default {
+              Write-Error "Unknown mode: ${{ github.event.inputs.mode }}"
+              exit 1
+            }
+          }
+
+  # --------------------------------------------------------------
+  # Middle Layer: CI (always for push/PR; always for manual mode)
+  # --------------------------------------------------------------
+  ci_layer:
+    needs: resolve_execution_flags
+    if: ${{ needs.resolve_execution_flags.outputs.run_ci == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_os: ${{ fromJSON(env.OS_MATRIX) }}
+    uses: ./.github/workflows/_ORCHESTRATOR_01_ci.yml
+    with:
+      runner_os: ${{ matrix.runner_os }}
+      # CI internal toggles (set true/false as needed)
+      # W&B rule: CI layer is fully offline — no W&B allowed here.
+      lint_enabled:       true
+      typecheck_enabled:  false
+      smoke_test_enabled: false
+      unit_test_enabled:  false
+
+  # --------------------------------------------------------------
+  # Middle Layer: CT (manual mode ci_ct/full)
+  # --------------------------------------------------------------
+  ct_layer:
+    needs: [resolve_execution_flags, ci_layer]
+    if: ${{ needs.resolve_execution_flags.outputs.run_ct == 'true' && needs.ci_layer.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_os: ${{ fromJSON(env.OS_MATRIX) }}
+    uses: ./.github/workflows/_ORCHESTRATOR_02_ct.yml
+    with:
+      runner_os: ${{ matrix.runner_os }}
+      # CT internal toggles (set true/false as needed)
+      # W&B rule: CT is internal integration only (no external services).
+      ct_integration_test_enabled: true
+
+  # --------------------------------------------------------------
+  # Middle Layer: Deployment Readiness (manual full)
+  # --------------------------------------------------------------
+  deployment_readiness_layer:
+    needs: [resolve_execution_flags, ci_layer, ct_layer]
+    if: ${{ needs.resolve_execution_flags.outputs.run_dr == 'true' && needs.ct_layer.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_os: ${{ fromJSON(env.OS_MATRIX) }}
+    uses: ./.github/workflows/_ORCHESTRATOR_03_deployment_readiness.yml
+    with:
+      runner_os: ${{ matrix.runner_os }}
+      # Deployment Readiness internal toggles (set true/false as needed)
+      deployment_test_enabled:  true
+      e2e_test_enabled:         true
+      security_enabled:         false
+      docker_enabled:           false

@@ -6,6 +6,7 @@ This repository is a **learning project** created as part of the **Udacity Machi
 
 - Added pre-push checks
 - Added CI-Checks after push
+- Did extensive "full-scale" CI/CT-Pipeline to exercise with this project
 
 ## Important links
 

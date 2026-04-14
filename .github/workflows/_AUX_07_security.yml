@@ -1,0 +1,37 @@
+# ──────────────────────────────────────────────────────────────────
+# Reusable Workflow: Security Scan
+# Tool:    bandit
+# Checks:  common security vulnerabilities (OWASP, hardcoded secrets,
+#          injection risks) — medium severity and above
+# ──────────────────────────────────────────────────────────────────
+on:
+  workflow_call:
+    inputs:
+      runner_os:
+        description: "Runner OS"
+        required: false
+        type: string
+        default: ubuntu-latest
+
+jobs:
+  security:
+    runs-on: ${{ inputs.runner_os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install bandit
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit
+
+      - name: Run bandit security scan
+        # -ll: report medium severity and above only (ignore low)
+        # -r:  scan recursively
+        run: bandit -r main.py src components -ll
