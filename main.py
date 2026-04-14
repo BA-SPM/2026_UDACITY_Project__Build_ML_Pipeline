@@ -3,7 +3,7 @@ import json
 import mlflow
 import tempfile
 import os
-import wandb
+# import wandb
 import hydra
 from omegaconf import DictConfig
 
@@ -54,10 +54,23 @@ def go(config: DictConfig):
             )
 
         if "basic_cleaning" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+            _ = mlflow.run(
+                os.path.join(hydra.utils.get_original_cwd(), "src", "basic_cleaning"),
+                "main",
+                env_manager="local",
+                parameters={
+                    "input_artifact": "sample.csv:latest",
+                    "output_artifact": "clean_sample.csv",
+                    "output_type": "clean_sample",
+                    # NOTE: Underscores instead of spaces — Windows MLflow passes
+                    # parameters as subprocess args; spaces split the string into
+                    # multiple arguments, causing an argparse error.
+                    # OLD: "output_description": "Data with outliers and null values removed",
+                    "output_description": "Data_with_outliers_and_null_values_removed",
+                    "min_price": config['etl']['min_price'],
+                    "max_price": config['etl']['max_price']
+                },
+            )
 
         if "data_check" in active_steps:
             ##################
