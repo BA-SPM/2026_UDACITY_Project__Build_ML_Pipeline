@@ -29,7 +29,6 @@ jobs:
     if: ${{ inputs.ct_integration_test_enabled }}
     # CT layer is OS-independent: runs once on ubuntu-latest only.
     # No matrix needed — internal component integration is platform-agnostic.
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/_AUX_05_integration_test.yml
     with:
       runner_os: ubuntu-latest

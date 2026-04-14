@@ -54,7 +54,6 @@ jobs:
   deployment_test:
     name: DR | Deployment Test (Shared)
     if: ${{ inputs.deployment_test_enabled && !failure() }}
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/_AUX_06_deployment_test.yml
     with:
       runner_os: ubuntu-latest
@@ -62,7 +61,6 @@ jobs:
   security:
     name: DR | Security Scan (Shared)
     if: ${{ inputs.security_enabled && !failure() }}
-    runs-on: ubuntu-latest
     uses: ./.github/workflows/_AUX_07_security.yml
     with:
       runner_os: ubuntu-latest
