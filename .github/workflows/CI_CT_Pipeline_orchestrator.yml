@@ -25,6 +25,9 @@ name: ORCHESTRATOR 00 - CI/CT/DR Pipeline
 # - Repository variable: OS_MATRIX_JSON
 # - Example value: ["windows-latest", "ubuntu-latest"]
 # - Fallback default (when variable is empty): windows + ubuntu
+# - Repository variable (optional): CI_RUNNER
+# - Example value: ubuntu-latest
+# - Fallback default (when variable is empty): ubuntu-latest
 #
 # Setup in GitHub:
 # - Repository öffnen
@@ -67,12 +70,14 @@ jobs:
       run_ct: ${{ steps.flags.outputs.run_ct }}
       run_dr: ${{ steps.flags.outputs.run_dr }}
       os_matrix: ${{ steps.flags.outputs.os_matrix }}
+      ci_runner: ${{ steps.flags.outputs.ci_runner }}
     steps:
       - name: Resolve CI/CT/DR flags
         id: flags
         shell: pwsh
         env:
           OS_MATRIX_JSON: ${{ vars.OS_MATRIX_JSON }}
+          CI_RUNNER: ${{ vars.CI_RUNNER }}
         run: |
           # Read central runner matrix from repository variable OS_MATRIX_JSON.
           # Valid values include: ubuntu-latest, windows-latest, macos-latest.
@@ -81,6 +86,14 @@ jobs:
             $osMatrix = '["windows-latest", "ubuntu-latest"]'
           }
           "os_matrix=$osMatrix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          # CI is OS-independent and runs once on a single runner.
+          # Read optional CI_RUNNER variable, default to ubuntu-latest.
+          $ciRunner = $env:CI_RUNNER
+          if ([string]::IsNullOrWhiteSpace($ciRunner)) {
+            $ciRunner = "ubuntu-latest"
+          }
+          "ci_runner=$ciRunner" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
           if ("${{ github.event_name }}" -ne "workflow_dispatch") {
             "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -120,13 +133,9 @@ jobs:
   ci_layer:
     needs: resolve_execution_flags
     if: ${{ needs.resolve_execution_flags.outputs.run_ci == 'true' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        runner_os: ${{ fromJSON(needs.resolve_execution_flags.outputs.os_matrix) }}
     uses: ./.github/workflows/_ORCHESTRATOR_01_ci.yml
     with:
-      runner_os: ${{ matrix.runner_os }}
+      runner_os: ${{ needs.resolve_execution_flags.outputs.ci_runner }}
       # CI internal toggles (set true/false as needed)
       # W&B rule: CI layer is fully offline — no W&B allowed here.
       lint_enabled:       true
@@ -136,34 +145,33 @@ jobs:
 
   # --------------------------------------------------------------
   # Middle Layer: CT (manual mode ci_ct/full)
+  # CT is OS-independent: runs once on ubuntu-latest only (no matrix)
+  # Internal component integration without external services
   # --------------------------------------------------------------
   ct_layer:
     needs: [resolve_execution_flags, ci_layer]
     if: ${{ needs.resolve_execution_flags.outputs.run_ct == 'true' && needs.ci_layer.result == 'success' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        runner_os: ${{ fromJSON(needs.resolve_execution_flags.outputs.os_matrix) }}
+    # NO MATRIX for CT: all internal integration tests are OS-agnostic
     uses: ./.github/workflows/_ORCHESTRATOR_02_ct.yml
     with:
-      runner_os: ${{ matrix.runner_os }}
       # CT internal toggles (set true/false as needed)
       # W&B rule: CT is internal integration only (no external services).
       ct_integration_test_enabled: true
 
   # --------------------------------------------------------------
   # Middle Layer: Deployment Readiness (manual full)
+  # DR has two sublayers:
+  #   (1) Shared Jobs (Deployment Test, Security) → OS-independent, run once on ubuntu-latest
+  #   (2) Matrix Jobs (Docker, E2E)              → OS-dependent, run on all configured runners
+  # Note: No high-level matrix here. _ORCHESTRATOR_03 receives full os_matrix and splits internally.
   # --------------------------------------------------------------
   deployment_readiness_layer:
     needs: [resolve_execution_flags, ci_layer, ct_layer]
     if: ${{ needs.resolve_execution_flags.outputs.run_dr == 'true' && needs.ct_layer.result == 'success' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        runner_os: ${{ fromJSON(needs.resolve_execution_flags.outputs.os_matrix) }}
+    # NO HIGH-LEVEL MATRIX: _ORCHESTRATOR_03 handles matrix internally
     uses: ./.github/workflows/_ORCHESTRATOR_03_deployment_readiness.yml
     with:
-      runner_os: ${{ matrix.runner_os }}
+      os_matrix: ${{ needs.resolve_execution_flags.outputs.os_matrix }}
       # Deployment Readiness internal toggles (set true/false as needed)
       deployment_test_enabled:  true
       e2e_test_enabled:         true

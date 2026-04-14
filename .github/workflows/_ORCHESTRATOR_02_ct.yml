@@ -4,6 +4,11 @@
 # Purpose:
 # - Continuous Testing: deeper checks beyond CI unit tests
 #
+# Architecture:
+# - CT is OS-independent: runs once on ubuntu-latest
+# - All internal integration tests are code-only (no external services)
+# - No W&B, no deployment checks — purely component integration
+#
 # Toggle inputs:
 # - ct_integration_test_enabled  → internal component integration (code-only, no W&B)
 # ================================================================
@@ -12,11 +17,6 @@ name: ORCHESTRATOR 02 - CT Layer
 on:
   workflow_call:
     inputs:
-      runner_os:
-        description: "Runner OS for all CT jobs"
-        required: false
-        type: string
-        default: ubuntu-latest
       ct_integration_test_enabled:
         description: "Enable internal integration test (no external services)"
         required: false
@@ -27,6 +27,9 @@ jobs:
   integration_test:
     name: CT | Internal Integration Test
     if: ${{ inputs.ct_integration_test_enabled }}
+    # CT layer is OS-independent: runs once on ubuntu-latest only.
+    # No matrix needed — internal component integration is platform-agnostic.
+    runs-on: ubuntu-latest
     uses: ./.github/workflows/_AUX_05_integration_test.yml
     with:
-      runner_os: ${{ inputs.runner_os }}
+      runner_os: ubuntu-latest

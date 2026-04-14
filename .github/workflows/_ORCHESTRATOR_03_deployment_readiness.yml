@@ -3,24 +3,29 @@
 # ================================================================
 # Purpose:
 # - Validate deployment readiness after CI/CT
-# - Contains deployment checks, build, security, and end-to-end release checks
+#
+# Architecture (OS-Aware):
+# - SHARED LAYER (OS-independent): Deployment Test + Security → run once on ubuntu-latest
+# - MATRIX LAYER (OS-dependent):   Docker Build + E2E        → run on all matrix runners
 #
 # Toggle inputs:
-# - deployment_test_enabled  → external systems readiness (W&B/credentials/artifacts)
-# - e2e_test_enabled         → complete pipeline run over real external components
-# - security_enabled    → bandit security scan
-# - docker_enabled      → docker build
+# - deployment_test_enabled  → external systems readiness (W&B/credentials)
+# - security_enabled         → bandit security scan (code-only, thus OS-independent)
+# - docker_enabled           → Docker build (OS-specific, requires matrix)
+# - e2e_test_enabled         → end-to-end pipeline run (OS-specific, requires matrix)
+#
+# Note: Matrix is fully customizable via GitHub repository variable OS_MATRIX_JSON
 # ================================================================
 name: ORCHESTRATOR 03 - Deployment Readiness Layer
 
 on:
   workflow_call:
     inputs:
-      runner_os:
-        description: "Runner OS for all Deployment Readiness jobs"
+      os_matrix:
+        description: "OS matrix for matrix-based jobs (JSON array, e.g., [\"ubuntu-latest\", \"windows-latest\"])"
         required: false
         type: string
-        default: ubuntu-latest
+        default: "[\"ubuntu-latest\"]"
       deployment_test_enabled:
         description: "Enable deployment/external integration checks (requires W&B)"
         required: false
@@ -32,42 +37,60 @@ on:
         type: boolean
         default: false
       security_enabled:
-        description: "Enable bandit security scan"
+        description: "Enable bandit security scan (OS-independent, runs once)"
         required: false
         type: boolean
         default: true
       docker_enabled:
-        description: "Enable docker build"
+        description: "Enable docker build (OS-specific, runs on matrix)"
         required: false
         type: boolean
         default: false
+
 jobs:
+  # ================================================================
+  # SHARED LAYER: OS-independent checks (run once, no matrix)
+  # ================================================================
   deployment_test:
-    name: DR | Deployment Test
+    name: DR | Deployment Test (Shared)
     if: ${{ inputs.deployment_test_enabled && !failure() }}
+    runs-on: ubuntu-latest
     uses: ./.github/workflows/_AUX_06_deployment_test.yml
     with:
-      runner_os: ${{ inputs.runner_os }}
+      runner_os: ubuntu-latest
 
   security:
-    name: DR | Security Scan
-    if: ${{ inputs.security_enabled }}
+    name: DR | Security Scan (Shared)
+    if: ${{ inputs.security_enabled && !failure() }}
+    runs-on: ubuntu-latest
     uses: ./.github/workflows/_AUX_07_security.yml
     with:
-      runner_os: ${{ inputs.runner_os }}
+      runner_os: ubuntu-latest
 
+  # ================================================================
+  # MATRIX LAYER: OS-dependent checks (run on all configured runners)
+  # ================================================================
   docker:
-    name: DR | Docker Build
+    name: DR | Docker Build [${{ matrix.runner_os }}]
     if: ${{ inputs.docker_enabled && !failure() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_os: ${{ fromJSON(inputs.os_matrix) }}
+    runs-on: ${{ matrix.runner_os }}
     uses: ./.github/workflows/_AUX_08_docker.yml
     with:
-      runner_os: ${{ inputs.runner_os }}
+      runner_os: ${{ matrix.runner_os }}
 
   e2e_test:
-    name: DR | End-to-End Pipeline Test
+    name: DR | E2E Pipeline Test [${{ matrix.runner_os }}]
     needs: deployment_test
-    # Disabled until all mlflow steps are implemented and W&B is configured.
     if: ${{ always() && inputs.e2e_test_enabled && (!inputs.deployment_test_enabled || needs.deployment_test.result == 'success') && !failure() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner_os: ${{ fromJSON(inputs.os_matrix) }}
+    runs-on: ${{ matrix.runner_os }}
     uses: ./.github/workflows/_AUX_09_e2e_test.yml
     with:
-      runner_os: ${{ inputs.runner_os }}
+      runner_os: ${{ matrix.runner_os }}
