@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
-Download from W;&B the raw dataset and apply some basic data cleaning, exporting the result to a new artifact
+Download from W;&B the raw dataset and apply some basic data cleaning,
+exporting the result to a new artifact
 """
 import argparse
 import logging
@@ -20,58 +21,52 @@ def go(args):
     # particular version of the artifact
     # artifact_local_path = run.use_artifact(args.input_artifact).file()
 
-    ######################
-    # YOUR CODE HERE     #
-    ######################
-
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="A very basic data cleaning")
 
-    
     parser.add_argument(
         "--input_artifact",
-        type=# INSERT TYPE HERE: str, float or int,
-        help=# INSERT DESCRIPTION HERE,
+        type=str,
+        help="Name of the input artifact",
         required=True
     )
-    
+
     parser.add_argument(
         "--output_artifact",
-        type=# INSERT TYPE HERE: str, float or int,
-        help=# INSERT DESCRIPTION HERE,
+        type=str,
+        help="Name of the output artifact",
         required=True
     )
-    
+
     parser.add_argument(
         "--output_type",
-        type=# INSERT TYPE HERE: str, float or int,
-        help=# INSERT DESCRIPTION HERE,
+        type=str,
+        help="Type of the output artifact",
         required=True
     )
-    
+
     parser.add_argument(
         "--output_description",
-        type=# INSERT TYPE HERE: str, float or int,
-        help=# INSERT DESCRIPTION HERE,
+        type=str,
+        help="Description of the output artifact",
         required=True
     )
-    
+
     parser.add_argument(
         "--min_price",
-        type=# INSERT TYPE HERE: str, float or int,
-        help=# INSERT DESCRIPTION HERE,
+        type=float,
+        help="Minimum price for filtering the dataset",
         required=True
     )
-    
+
     parser.add_argument(
         "--max_price",
-        type=# INSERT TYPE HERE: str, float or int,
-        help=# INSERT DESCRIPTION HERE,
+        type=float,
+        help="Maximum price for filtering the dataset",
         required=True
     )
-    
 
     args = parser.parse_args()
 
