@@ -14,22 +14,34 @@
 # - full:     Run CI middle layer, then CT, then Deployment Readiness + E2E
 #
 # Default behavior:
-# - push / pull_request: run CI only
+# - push: run CI only
+# - pull_request: currently disabled (kept below as commented template)
 # - manual dispatch: choose mode from dropdown
 # ================================================================
-name: CI & CT & DR - Pipeline Orchestrator
+name: ORCHESTRATOR 00 - CI/CT/DR Pipeline
 
-# Central OS control:
-# - Edit OS_MATRIX in one place.
-# - Valid values include: ubuntu-latest, windows-latest, macos-latest.
-env:
-  OS_MATRIX: '["windows-latest", "ubuntu-latest"]'
+# --------------------------------------------------------------
+# Central runner configuration (single source of truth)
+# - Repository variable: OS_MATRIX_JSON
+# - Example value: ["windows-latest", "ubuntu-latest"]
+# - Fallback default (when variable is empty): windows + ubuntu
+#
+# Setup in GitHub:
+# - Repository öffnen
+# - Settings
+# - Secrets and variables
+# - Actions
+# - Tab Variables
+# - New repository variable
+# - Name: OS_MATRIX_JSON
+# - Value: ["windows-latest", "ubuntu-latest"]
+# --------------------------------------------------------------
 
 on:
   push:
     branches: ["**"]
-  pull_request:
-    branches: [main]
+  # pull_request:
+  #   branches: [main]
   workflow_dispatch:
     inputs:
       mode:
@@ -47,17 +59,27 @@ jobs:
   # Resolve execution flags from mode selection
   # --------------------------------------------------------------
   resolve_execution_flags:
-    # Use first OS from central matrix for the control job.
-    runs-on: ${{ fromJSON(env.OS_MATRIX)[0] }}
+    # Control job runner (fixed): ubuntu-latest
+    # Matrix runner defaults are configured below via $osMatrix.
+    runs-on: ubuntu-latest
     outputs:
       run_ci: ${{ steps.flags.outputs.run_ci }}
       run_ct: ${{ steps.flags.outputs.run_ct }}
       run_dr: ${{ steps.flags.outputs.run_dr }}
+      os_matrix: ${{ steps.flags.outputs.os_matrix }}
     steps:
       - name: Resolve CI/CT/DR flags
         id: flags
         shell: pwsh
         run: |
+          # Read central runner matrix from repository variable OS_MATRIX_JSON.
+          # Valid values include: ubuntu-latest, windows-latest, macos-latest.
+          $osMatrix = "${{ vars.OS_MATRIX_JSON }}"
+          if ([string]::IsNullOrWhiteSpace($osMatrix)) {
+            $osMatrix = '["windows-latest", "ubuntu-latest"]'
+          }
+          "os_matrix=$osMatrix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
           if ("${{ github.event_name }}" -ne "workflow_dispatch") {
             "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
             "run_ct=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -99,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner_os: ${{ fromJSON(env.OS_MATRIX) }}
+        runner_os: ${{ fromJSON(needs.resolve_execution_flags.outputs.os_matrix) }}
     uses: ./.github/workflows/_ORCHESTRATOR_01_ci.yml
     with:
       runner_os: ${{ matrix.runner_os }}
@@ -107,7 +129,7 @@ jobs:
       # W&B rule: CI layer is fully offline — no W&B allowed here.
       lint_enabled:       true
       typecheck_enabled:  false
-      smoke_test_enabled: false
+      smoke_test_enabled: true
       unit_test_enabled:  false
 
   # --------------------------------------------------------------
@@ -119,7 +141,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner_os: ${{ fromJSON(env.OS_MATRIX) }}
+        runner_os: ${{ fromJSON(needs.resolve_execution_flags.outputs.os_matrix) }}
     uses: ./.github/workflows/_ORCHESTRATOR_02_ct.yml
     with:
       runner_os: ${{ matrix.runner_os }}
@@ -136,7 +158,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner_os: ${{ fromJSON(env.OS_MATRIX) }}
+        runner_os: ${{ fromJSON(needs.resolve_execution_flags.outputs.os_matrix) }}
     uses: ./.github/workflows/_ORCHESTRATOR_03_deployment_readiness.yml
     with:
       runner_os: ${{ matrix.runner_os }}

@@ -11,7 +11,7 @@
 #   - WANDB_API_KEY GitHub Actions secret
 #   - All mlflow pipeline steps implemented (no placeholder code)
 # ──────────────────────────────────────────────────────────────────
-name: AUX 06 - Deployment Test
+name: AUX 06 - Deployment Readiness Test
 
 on:
   workflow_call:

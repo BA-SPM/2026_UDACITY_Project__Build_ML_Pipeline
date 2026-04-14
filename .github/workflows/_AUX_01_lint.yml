@@ -4,6 +4,8 @@
 # Checks:  code style, complexity, hard syntax errors
 # Config:  .flake8 in project root
 # ──────────────────────────────────────────────────────────────────
+name: AUX 01 - Lint
+
 on:
   workflow_call:
     inputs:

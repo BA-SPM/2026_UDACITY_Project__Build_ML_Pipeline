@@ -7,7 +7,7 @@
 # Toggle inputs:
 # - ct_integration_test_enabled  → internal component integration (code-only, no W&B)
 # ================================================================
-name: CT - Internal Integration Layer
+name: ORCHESTRATOR 02 - CT Layer
 
 on:
   workflow_call:

@@ -5,6 +5,8 @@
 #          no syntax errors in stable code paths
 # Note:    No external services required (code-only check)
 # ──────────────────────────────────────────────────────────────────
+name: AUX 03 - Smoke Test
+
 on:
   workflow_call:
     inputs:

@@ -11,7 +11,7 @@
 # - smoke_test_enabled  → import check + syntax compilation (code-only)
 # - unit_test_enabled   → pytest unit tests + coverage
 # ================================================================
-name: CI Middle Layer
+name: ORCHESTRATOR 01 - CI Layer
 
 on:
   workflow_call:

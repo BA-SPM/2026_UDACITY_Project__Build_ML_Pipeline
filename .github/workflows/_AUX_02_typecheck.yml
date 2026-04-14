@@ -4,6 +4,8 @@
 # Checks:  static type annotations
 # Scope:   src/data_check only (stable code; train step has placeholders)
 # ──────────────────────────────────────────────────────────────────
+name: AUX 02 - Type Check
+
 on:
   workflow_call:
     inputs:

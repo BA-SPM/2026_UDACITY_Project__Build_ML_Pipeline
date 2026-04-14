@@ -13,7 +13,7 @@
 #   - All mlflow pipeline steps implemented (no placeholder code)
 #   - Training data accessible via W&B artifacts
 # ──────────────────────────────────────────────────────────────────
-name: AUX 09 - End-to-End Test
+name: AUX 09 - E2E Pipeline Test
 
 on:
   workflow_call:

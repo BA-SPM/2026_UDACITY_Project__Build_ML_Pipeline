@@ -5,6 +5,8 @@
 # Rule:    NO W&B allowed — all data must be mocked in pytest.
 #          W&B is first used in _AUX_06_deployment_test.yml (Deployment layer).
 # ──────────────────────────────────────────────────────────────────
+name: AUX 04 - Unit Test
+
 on:
   workflow_call:
     inputs:

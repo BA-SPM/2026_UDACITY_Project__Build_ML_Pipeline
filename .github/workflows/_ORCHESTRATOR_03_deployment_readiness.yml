@@ -11,7 +11,7 @@
 # - security_enabled    → bandit security scan
 # - docker_enabled      → docker build
 # ================================================================
-name: DR - Deployment and E2E Layer
+name: ORCHESTRATOR 03 - Deployment Readiness Layer
 
 on:
   workflow_call:

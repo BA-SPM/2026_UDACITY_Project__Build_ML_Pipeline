@@ -6,7 +6,7 @@
 #
 # Note:    train_random_forest/run.py excluded until placeholders are filled.
 # ──────────────────────────────────────────────────────────────────
-name: AUX 05 - Internal Integration Test
+name: AUX 05 - Integration Test (Internal)
 
 on:
   workflow_call:

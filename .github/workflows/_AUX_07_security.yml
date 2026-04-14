@@ -4,6 +4,8 @@
 # Checks:  common security vulnerabilities (OWASP, hardcoded secrets,
 #          injection risks) — medium severity and above
 # ──────────────────────────────────────────────────────────────────
+name: AUX 07 - Security Scan
+
 on:
   workflow_call:
     inputs:
