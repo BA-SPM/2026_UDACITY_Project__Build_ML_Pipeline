@@ -7,6 +7,7 @@ import logging
 import pandas as pd
 import wandb
 import tempfile
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from wandb_utils.log_artifact import log_artifact
 
@@ -22,7 +23,14 @@ def go(args):
     # Download input artifact. This will also note that this script is using this
     # particular version of the artifact
     logger.info(f"Fetching artifact {args.input}")
-    artifact_local_path = run.use_artifact(args.input).file()
+    input_artifact = run.use_artifact(args.input)
+    artifact_dir = Path(input_artifact.download())
+    csv_files = sorted(artifact_dir.glob("*.csv"))
+
+    if not csv_files:
+        raise RuntimeError(f"No CSV files found in artifact {args.input}")
+
+    artifact_local_path = csv_files[0]
 
     df = pd.read_csv(artifact_local_path)
 
