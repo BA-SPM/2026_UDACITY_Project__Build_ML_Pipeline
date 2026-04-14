@@ -71,10 +71,12 @@ jobs:
       - name: Resolve CI/CT/DR flags
         id: flags
         shell: pwsh
+        env:
+          OS_MATRIX_JSON: ${{ vars.OS_MATRIX_JSON }}
         run: |
           # Read central runner matrix from repository variable OS_MATRIX_JSON.
           # Valid values include: ubuntu-latest, windows-latest, macos-latest.
-          $osMatrix = "${{ vars.OS_MATRIX_JSON }}"
+          $osMatrix = $env:OS_MATRIX_JSON
           if ([string]::IsNullOrWhiteSpace($osMatrix)) {
             $osMatrix = '["windows-latest", "ubuntu-latest"]'
           }
