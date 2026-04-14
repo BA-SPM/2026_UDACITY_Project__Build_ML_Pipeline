@@ -75,7 +75,6 @@ jobs:
       fail-fast: false
       matrix:
         runner_os: ${{ fromJSON(inputs.os_matrix) }}
-    runs-on: ${{ matrix.runner_os }}
     uses: ./.github/workflows/_AUX_08_docker.yml
     with:
       runner_os: ${{ matrix.runner_os }}
@@ -88,7 +87,6 @@ jobs:
       fail-fast: false
       matrix:
         runner_os: ${{ fromJSON(inputs.os_matrix) }}
-    runs-on: ${{ matrix.runner_os }}
     uses: ./.github/workflows/_AUX_09_e2e_test.yml
     with:
       runner_os: ${{ matrix.runner_os }}
