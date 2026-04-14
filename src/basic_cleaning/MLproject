@@ -6,28 +6,28 @@ entry_points:
     parameters:
 
       input_artifact:
-        description: ## ADD DESCRIPTION
+        description: Fully-qualified name of the input artifact to clean
         type: string
 
       output_artifact:
-        description: ## ADD DESCRIPTION
+        description: Name for the cleaned output artifact
         type: string
 
       output_type:
-        description: ## ADD DESCRIPTION
+        description: W&B artifact type for the cleaned dataset
         type: string
 
       output_description:
-        description: ## ADD DESCRIPTION
+        description: Description of the cleaned output artifact
         type: string
 
       min_price:
-        description: ## ADD DESCRIPTION
-        type: string
+        description: Minimum allowed price (inclusive)
+        type: float
 
       max_price:
-        description: ## ADD DESCRIPTION
-        type: string
+        description: Maximum allowed price (inclusive)
+        type: float
 
 
     command: >-
