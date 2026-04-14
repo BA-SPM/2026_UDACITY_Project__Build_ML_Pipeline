@@ -1,10 +1,22 @@
-# Byte-compiled / optimized / DLL files
+# GIT ingore file - BA_SPM
+# =========================
+
+# Personal exclusions for this workspace:
+00_Projekt_Walktrough.md
+
+
+# Ignore the following files and directories:
+# - .vscode/ (Visual Studio Code settings)
+.vscode/
+
+# Ignore Python bytecode files and cache directories
 __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.so
+
+
+
 
 # Distribution / packaging
 .Python
