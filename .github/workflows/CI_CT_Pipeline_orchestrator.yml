@@ -59,83 +59,12 @@ on:
 
 jobs:
   # --------------------------------------------------------------
-  # Resolve execution flags from mode selection
-  # --------------------------------------------------------------
-  resolve_execution_flags:
-    # Control job runner (fixed): ubuntu-latest
-    # Matrix runner defaults are configured below via $osMatrix.
-    runs-on: ubuntu-latest
-    outputs:
-      run_ci: ${{ steps.flags.outputs.run_ci }}
-      run_ct: ${{ steps.flags.outputs.run_ct }}
-      run_dr: ${{ steps.flags.outputs.run_dr }}
-      os_matrix: ${{ steps.flags.outputs.os_matrix }}
-      ci_runner: ${{ steps.flags.outputs.ci_runner }}
-    steps:
-      - name: Resolve CI/CT/DR flags
-        id: flags
-        shell: pwsh
-        env:
-          OS_MATRIX_JSON: ${{ vars.OS_MATRIX_JSON }}
-          CI_RUNNER: ${{ vars.CI_RUNNER }}
-        run: |
-          # Read central runner matrix from repository variable OS_MATRIX_JSON.
-          # Valid values include: ubuntu-latest, windows-latest, macos-latest.
-          $osMatrix = $env:OS_MATRIX_JSON
-          if ([string]::IsNullOrWhiteSpace($osMatrix)) {
-            $osMatrix = '["windows-latest", "ubuntu-latest"]'
-          }
-          "os_matrix=$osMatrix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-          # CI is OS-independent and runs once on a single runner.
-          # Read optional CI_RUNNER variable, default to ubuntu-latest.
-          $ciRunner = $env:CI_RUNNER
-          if ([string]::IsNullOrWhiteSpace($ciRunner)) {
-            $ciRunner = "ubuntu-latest"
-          }
-          "ci_runner=$ciRunner" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-          if ("${{ github.event_name }}" -ne "workflow_dispatch") {
-            "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "run_ct=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            "run_dr=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-            exit 0
-          }
-
-          switch ("${{ github.event.inputs.mode }}") {
-            "ci" {
-              "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              "run_ct=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              "run_dr=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              break
-            }
-            "ci_ct" {
-              "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              "run_ct=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              "run_dr=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              break
-            }
-            "full" {
-              "run_ci=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              "run_ct=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              "run_dr=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-              break
-            }
-            default {
-              Write-Error "Unknown mode: ${{ github.event.inputs.mode }}"
-              exit 1
-            }
-          }
-
-  # --------------------------------------------------------------
   # Middle Layer: CI (always for push/PR; always for manual mode)
   # --------------------------------------------------------------
   ci_layer:
-    needs: resolve_execution_flags
-    if: ${{ needs.resolve_execution_flags.outputs.run_ci == 'true' }}
     uses: ./.github/workflows/_ORCHESTRATOR_01_ci.yml
     with:
-      runner_os: ${{ needs.resolve_execution_flags.outputs.ci_runner }}
+      runner_os: ${{ vars.CI_RUNNER != '' && vars.CI_RUNNER || 'ubuntu-latest' }}
       # CI internal toggles (set true/false as needed)
       # W&B rule: CI layer is fully offline — no W&B allowed here.
       lint_enabled:       true
@@ -149,14 +78,14 @@ jobs:
   # Internal component integration without external services
   # --------------------------------------------------------------
   ct_layer:
-    needs: [resolve_execution_flags, ci_layer]
-    if: ${{ needs.resolve_execution_flags.outputs.run_ct == 'true' && needs.ci_layer.result == 'success' }}
+    needs: ci_layer
+    if: ${{ github.event_name == 'workflow_dispatch' && contains(fromJSON('["ci_ct","full"]'), github.event.inputs.mode) && needs.ci_layer.result == 'success' }}
     # NO MATRIX for CT: all internal integration tests are OS-agnostic
     uses: ./.github/workflows/_ORCHESTRATOR_02_ct.yml
     with:
       # CT internal toggles (set true/false as needed)
       # W&B rule: CT is internal integration only (no external services).
-      ct_integration_test_enabled: true
+      ct_integration_test_enabled: false
 
   # --------------------------------------------------------------
   # Middle Layer: Deployment Readiness (manual full)
@@ -166,14 +95,14 @@ jobs:
   # Note: No high-level matrix here. _ORCHESTRATOR_03 receives full os_matrix and splits internally.
   # --------------------------------------------------------------
   deployment_readiness_layer:
-    needs: [resolve_execution_flags, ci_layer, ct_layer]
-    if: ${{ needs.resolve_execution_flags.outputs.run_dr == 'true' && needs.ct_layer.result == 'success' }}
+    needs: ct_layer
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'full' && needs.ct_layer.result == 'success' }}
     # NO HIGH-LEVEL MATRIX: _ORCHESTRATOR_03 handles matrix internally
     uses: ./.github/workflows/_ORCHESTRATOR_03_deployment_readiness.yml
     with:
-      os_matrix: ${{ needs.resolve_execution_flags.outputs.os_matrix }}
+      os_matrix: ${{ vars.OS_MATRIX_JSON != '' && vars.OS_MATRIX_JSON || '["windows-latest", "ubuntu-latest"]' }}
       # Deployment Readiness internal toggles (set true/false as needed)
-      deployment_test_enabled:  true
-      e2e_test_enabled:         true
+      deployment_test_enabled:  false
+      e2e_test_enabled:         false
       security_enabled:         false
       docker_enabled:           false

@@ -51,21 +51,21 @@ jobs:
 
   typecheck:
     needs: lint
-    if: ${{ always() && inputs.typecheck_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') }}
+    if: ${{ inputs.typecheck_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') }}
     uses: ./.github/workflows/_AUX_02_typecheck.yml
     with:
       runner_os: ${{ inputs.runner_os }}
 
   smoke_test:
-    needs: lint
-    if: ${{ always() && inputs.smoke_test_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') }}
+    needs: typecheck
+    if: ${{ inputs.smoke_test_enabled && (!inputs.typecheck_enabled || needs.typecheck.result == 'success') }}
     uses: ./.github/workflows/_AUX_03_smoke_test.yml
     with:
       runner_os: ${{ inputs.runner_os }}
 
   unit_test:
-    needs: [lint, smoke_test]
-    if: ${{ always() && inputs.unit_test_enabled && (!inputs.lint_enabled || needs.lint.result == 'success') && (!inputs.smoke_test_enabled || needs.smoke_test.result == 'success') }}
+    needs: smoke_test
+    if: ${{ inputs.unit_test_enabled && (!inputs.smoke_test_enabled || needs.smoke_test.result == 'success') }}
     uses: ./.github/workflows/_AUX_04_unit_test.yml
     with:
       runner_os: ${{ inputs.runner_os }}

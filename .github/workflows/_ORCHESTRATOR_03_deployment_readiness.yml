@@ -53,14 +53,15 @@ jobs:
   # ================================================================
   deployment_test:
     name: DR | Deployment Test (Shared)
-    if: ${{ inputs.deployment_test_enabled && !failure() }}
+    if: ${{ inputs.deployment_test_enabled }}
     uses: ./.github/workflows/_AUX_06_deployment_test.yml
     with:
       runner_os: ubuntu-latest
 
   security:
     name: DR | Security Scan (Shared)
-    if: ${{ inputs.security_enabled && !failure() }}
+    needs: deployment_test
+    if: ${{ inputs.security_enabled && (!inputs.deployment_test_enabled || needs.deployment_test.result == 'success') }}
     uses: ./.github/workflows/_AUX_07_security.yml
     with:
       runner_os: ubuntu-latest
@@ -70,7 +71,8 @@ jobs:
   # ================================================================
   docker:
     name: DR | Docker Build [${{ matrix.runner_os }}]
-    if: ${{ inputs.docker_enabled && !failure() }}
+    needs: security
+    if: ${{ inputs.docker_enabled && (!inputs.security_enabled || needs.security.result == 'success') }}
     strategy:
       fail-fast: false
       matrix:
@@ -81,8 +83,8 @@ jobs:
 
   e2e_test:
     name: DR | E2E Pipeline Test [${{ matrix.runner_os }}]
-    needs: deployment_test
-    if: ${{ always() && inputs.e2e_test_enabled && (!inputs.deployment_test_enabled || needs.deployment_test.result == 'success') && !failure() }}
+    needs: docker
+    if: ${{ inputs.e2e_test_enabled && (!inputs.docker_enabled || needs.docker.result == 'success') }}
     strategy:
       fail-fast: false
       matrix:
