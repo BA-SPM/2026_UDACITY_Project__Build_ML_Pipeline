@@ -7,6 +7,7 @@ import logging
 import wandb
 import mlflow
 import pandas as pd
+from pathlib import Path
 from sklearn.metrics import mean_absolute_error
 
 # from wandb_utils.log_artifact import log_artifact
@@ -27,7 +28,14 @@ def go(args):
     model_local_path = run.use_artifact(args.mlflow_model).download()
 
     # Download test dataset
-    test_dataset_path = run.use_artifact(args.test_dataset).file()
+    test_dataset_artifact = run.use_artifact(args.test_dataset)
+    artifact_dir = Path(test_dataset_artifact.download())
+    csv_files = sorted(artifact_dir.glob("*.csv"))
+
+    if not csv_files:
+        raise RuntimeError(f"No CSV files found in artifact {args.test_dataset}")
+
+    test_dataset_path = csv_files[0]
 
     # Read test dataset
     X_test = pd.read_csv(test_dataset_path)

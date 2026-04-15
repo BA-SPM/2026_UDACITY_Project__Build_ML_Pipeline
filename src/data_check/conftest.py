@@ -1,6 +1,7 @@
 import pytest
 import pandas as pd
 import wandb
+from pathlib import Path
 
 
 def pytest_addoption(parser):
@@ -17,11 +18,14 @@ def data(request):
 
     # Download input artifact. This will also note that this script is using this
     # particular version of the artifact
-    data_path = run.use_artifact(request.config.option.csv).file()
+    input_artifact = run.use_artifact(request.config.option.csv)
+    artifact_dir = Path(input_artifact.download())
+    csv_files = sorted(artifact_dir.glob("*.csv"))
 
-    if data_path is None:
+    if not csv_files:
         pytest.fail("You must provide the --csv option on the command line")
 
+    data_path = csv_files[0]
     df = pd.read_csv(data_path)
 
     return df
@@ -33,11 +37,14 @@ def ref_data(request):
 
     # Download input artifact. This will also note that this script is using this
     # particular version of the artifact
-    data_path = run.use_artifact(request.config.option.ref).file()
+    ref_artifact = run.use_artifact(request.config.option.ref)
+    artifact_dir = Path(ref_artifact.download())
+    csv_files = sorted(artifact_dir.glob("*.csv"))
 
-    if data_path is None:
+    if not csv_files:
         pytest.fail("You must provide the --ref option on the command line")
 
+    data_path = csv_files[0]
     df = pd.read_csv(data_path)
 
     return df
