@@ -4,8 +4,8 @@ This script trains a Random Forest
 """
 import argparse
 import logging
-import os
 import shutil
+import tempfile
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -104,13 +104,18 @@ def go(args):
     logger.info("Exporting model")
 
     # Save model package in the MLFlow sklearn format
-    if os.path.exists("random_forest_dir"):
-        shutil.rmtree("random_forest_dir")
+    # OLD:
+    # if os.path.exists("random_forest_dir"):
+    #     shutil.rmtree("random_forest_dir")
+    # Windows note: directory handles can remain locked in repeated runs,
+    # causing PermissionError during rmtree on the fixed path.
+    export_root = Path(tempfile.mkdtemp(prefix="random_forest_export_"))
+    export_dir = export_root / "random_forest_dir"
 
     ######################################
     # Save the sk_pipe pipeline as a mlflow.sklearn model in the directory "random_forest_dir"
     # HINT: use mlflow.sklearn.save_model
-    mlflow.sklearn.save_model(sk_pipe, "random_forest_dir")
+    mlflow.sklearn.save_model(sk_pipe, str(export_dir))
     ######################################
 
     ######################################
@@ -126,8 +131,11 @@ def go(args):
         description="Trained random forest pipeline exported in MLflow format",
         metadata=rf_config,
     )
-    artifact.add_dir("random_forest_dir")
+    artifact.add_dir(str(export_dir))
     run.log_artifact(artifact)
+
+    # Best-effort cleanup of the temporary export directory.
+    shutil.rmtree(export_root, ignore_errors=True)
     ######################################
 
     # Plot feature importance
