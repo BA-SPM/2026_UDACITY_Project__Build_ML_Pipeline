@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -34,4 +34,5 @@ jobs:
           pip install flake8
 
       - name: Run flake8
-        run: flake8 main.py src components
+        # Lint all Python files in the repository (respecting .flake8 excludes)
+        run: flake8 .
