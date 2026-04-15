@@ -18,6 +18,9 @@ def data(request):
 
     # Download input artifact. This will also note that this script is using this
     # particular version of the artifact
+    # OLD: data_path = run.use_artifact(request.config.option.csv).file()
+    # Windows note: .file() can create a local path containing :latest, which is
+    # not a valid Windows path segment.
     input_artifact = run.use_artifact(request.config.option.csv)
     artifact_dir = Path(input_artifact.download())
     csv_files = sorted(artifact_dir.glob("*.csv"))
@@ -37,6 +40,9 @@ def ref_data(request):
 
     # Download input artifact. This will also note that this script is using this
     # particular version of the artifact
+    # OLD: data_path = run.use_artifact(request.config.option.ref).file()
+    # Windows note: .file() can create a local path containing :reference, which
+    # is not a valid Windows path segment.
     ref_artifact = run.use_artifact(request.config.option.ref)
     artifact_dir = Path(ref_artifact.download())
     csv_files = sorted(artifact_dir.glob("*.csv"))

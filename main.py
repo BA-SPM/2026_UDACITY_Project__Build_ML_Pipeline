@@ -1,8 +1,9 @@
 import json
 
 import mlflow
-import tempfile
 import os
+# NOTE: TODO: Check for later if still needed
+# import tempfile
 # import wandb
 import hydra
 from omegaconf import DictConfig
@@ -33,88 +34,100 @@ def go(config: DictConfig):
     steps_par = config['main']['steps']
     active_steps = steps_par.split(",") if steps_par != "all" else _steps
 
-    # Move to a temporary directory
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    if "download" in active_steps:
+        # Download file and load in W&B
+        _ = mlflow.run(
+            f"{config['main']['components_repository']}/get_data",
+            "main",
+            # NOTE: env_manager='local' used throughout this project.
+            # Corporate firewall blocks conda-forge — all dependencies
+            # must be pre-installed in the active Python environment.
+            env_manager="local",
+            parameters={
+                "sample": config["etl"]["sample"],
+                "artifact_name": "sample.csv",
+                "artifact_type": "raw_data",
+                "artifact_description": "Raw_file_as_downloaded"
+            },
+        )
 
-        if "download" in active_steps:
-            # Download file and load in W&B
-            _ = mlflow.run(
-                f"{config['main']['components_repository']}/get_data",
-                "main",
-                # NOTE: env_manager='local' used throughout this project.
-                # Corporate firewall blocks conda-forge — all dependencies
-                # must be pre-installed in the active Python environment.
-                env_manager="local",
-                parameters={
-                    "sample": config["etl"]["sample"],
-                    "artifact_name": "sample.csv",
-                    "artifact_type": "raw_data",
-                    "artifact_description": "Raw_file_as_downloaded"
-                },
-            )
+    if "basic_cleaning" in active_steps:
+        _ = mlflow.run(
+            os.path.join(hydra.utils.get_original_cwd(), "src", "basic_cleaning"),
+            "main",
+            env_manager="local",
+            parameters={
+                "input_artifact": "sample.csv:latest",
+                "output_artifact": "clean_sample.csv",
+                "output_type": "clean_sample",
+                # NOTE: Underscores instead of spaces — Windows MLflow passes
+                # parameters as subprocess args; spaces split the string into
+                # multiple arguments, causing an argparse error.
+                # OLD: "output_description": "Data with outliers and null values removed",
+                "output_description": "Data_with_outliers_and_null_values_removed",
+                "min_price": config['etl']['min_price'],
+                "max_price": config['etl']['max_price']
+            },
+        )
 
-        if "basic_cleaning" in active_steps:
-            _ = mlflow.run(
-                os.path.join(hydra.utils.get_original_cwd(), "src", "basic_cleaning"),
-                "main",
-                env_manager="local",
-                parameters={
-                    "input_artifact": "sample.csv:latest",
-                    "output_artifact": "clean_sample.csv",
-                    "output_type": "clean_sample",
-                    # NOTE: Underscores instead of spaces — Windows MLflow passes
-                    # parameters as subprocess args; spaces split the string into
-                    # multiple arguments, causing an argparse error.
-                    # OLD: "output_description": "Data with outliers and null values removed",
-                    "output_description": "Data_with_outliers_and_null_values_removed",
-                    "min_price": config['etl']['min_price'],
-                    "max_price": config['etl']['max_price']
-                },
-            )
+    if "data_check" in active_steps:
+        _ = mlflow.run(
+            os.path.join(hydra.utils.get_original_cwd(), "src", "data_check"),
+            "main",
+            env_manager="local",
+            parameters={
+                "csv": "clean_sample.csv:latest",
+                "ref": "clean_sample.csv:reference",
+                "kl_threshold": config["data_check"]["kl_threshold"],
+                "min_price": config["etl"]["min_price"],
+                "max_price": config["etl"]["max_price"],
+            },
+        )
 
-        if "data_check" in active_steps:
-            _ = mlflow.run(
-                os.path.join(hydra.utils.get_original_cwd(), "src", "data_check"),
-                "main",
-                env_manager="local",
-                parameters={
-                    "csv": "clean_sample:latest",
-                    "ref": "clean_sample:reference",
-                    "kl_threshold": config["data_check"]["kl_threshold"],
-                    "min_price": config["etl"]["min_price"],
-                    "max_price": config["etl"]["max_price"],
-                },
-            )
+    if "data_split" in active_steps:
+        _ = mlflow.run(
+            f"{config['main']['components_repository']}/train_val_test_split",
+            "main",
+            env_manager="local",
+            parameters={
+                "input": "clean_sample.csv:latest",
+                "test_size": config["modeling"]["test_size"],
+                "random_seed": config["modeling"]["random_seed"],
+                "stratify_by": config["modeling"]["stratify_by"],
+            },
+        )
 
-        if "data_split" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+    if "train_random_forest" in active_steps:
 
-        if "train_random_forest" in active_steps:
+        # NOTE: we need to serialize the random forest configuration into JSON
+        rf_config = os.path.abspath("rf_config.json")
+        with open(rf_config, "w+") as fp:
+            json.dump(dict(config["modeling"]["random_forest"].items()), fp)  # DO NOT TOUCH
 
-            # NOTE: we need to serialize the random forest configuration into JSON
-            rf_config = os.path.abspath("rf_config.json")
-            with open(rf_config, "w+") as fp:
-                json.dump(dict(config["modeling"]["random_forest"].items()), fp)  # DO NOT TOUCH
+        # NOTE: use the rf_config we just created as the rf_config parameter
+        # for the train_random_forest step
+        _ = mlflow.run(
+            os.path.join(hydra.utils.get_original_cwd(), "src", "train_random_forest"),
+            "main",
+            env_manager="local",
+            parameters={
+                "trainval_artifact": "trainval_data.csv:latest",
+                "output_artifact": "random_forest_export",
+                "rf_config": rf_config,
+                "val_size": config["modeling"]["val_size"],
+                "random_seed": config["modeling"]["random_seed"],
+                "stratify_by": config["modeling"]["stratify_by"],
+                "max_tfidf_features": config["modeling"]["max_tfidf_features"],
+            },
+        )
 
-            # NOTE: use the rf_config we just created as the rf_config parameter for the train_random_forest
-            # step
+    if "test_regression_model" in active_steps:
 
-            ##################
-            # Implement here #
-            ##################
+        ##################
+        # Implement here #
+        ##################
 
-            pass
-
-        if "test_regression_model" in active_steps:
-
-            ##################
-            # Implement here #
-            ##################
-
-            pass
+        pass
 
 
 if __name__ == "__main__":

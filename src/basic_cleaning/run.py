@@ -23,6 +23,9 @@ def go(args):
     # Download input artifact. This will also log that this script is using this
     # particular version of the artifact
     input_artifact = run.use_artifact(args.input_artifact)
+    # OLD: artifact_local_path = input_artifact.file()
+    # Windows note: .file() can build a local path containing the artifact alias
+    # (for example :latest), which is not a valid Windows path segment.
     artifact_dir = Path(input_artifact.download())
     csv_files = sorted(artifact_dir.glob("*.csv"))
 
