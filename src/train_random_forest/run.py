@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 import mlflow
 import json
@@ -27,7 +28,8 @@ from sklearn.pipeline import Pipeline, make_pipeline
 
 def delta_date_feature(dates):
     """
-    Given a 2d array containing dates (in any format recognized by pd.to_datetime), it returns the delta in days
+    Given a 2d array containing dates (in any format recognized by pd.to_datetime),
+    it returns the delta in days
     between each date and the most recent date in its column
     """
     date_sanitized = pd.DataFrame(dates).apply(pd.to_datetime)
@@ -52,9 +54,20 @@ def go(args):
     rf_config['random_state'] = args.random_seed
 
     ######################################
-    # Use run.use_artifact(...).file() to get the train and validation artifact (args.trainval_artifact)
-    # and save the returned path in train_local_path
-    trainval_local_path =  # YOUR CODE HERE
+    # OLD: trainval_local_path = run.use_artifact(args.trainval_artifact).file()
+    # Windows note: .file() can create a local path containing :latest, which is
+    # not a valid Windows path segment.
+    # Use run.use_artifact(...).download() to get the train and validation artifact
+    # (args.trainval_artifact) and save the returned path in train_local_path
+    artifact_dir = Path(run.use_artifact(args.trainval_artifact).download())
+    csv_files = sorted(artifact_dir.glob("*.csv"))
+
+    if not csv_files:
+        raise RuntimeError(
+            f"No CSV files found in artifact {args.trainval_artifact}"
+        )
+
+    trainval_local_path = csv_files[0]
     ######################################
 
     X = pd.read_csv(trainval_local_path)
@@ -75,7 +88,7 @@ def go(args):
 
     ######################################
     # Fit the pipeline sk_pipe by calling the .fit method on X_train and y_train
-    # YOUR CODE HERE
+    sk_pipe.fit(X_train, y_train)
     ######################################
 
     # Compute r2 and MAE
@@ -97,16 +110,24 @@ def go(args):
     ######################################
     # Save the sk_pipe pipeline as a mlflow.sklearn model in the directory "random_forest_dir"
     # HINT: use mlflow.sklearn.save_model
-    # YOUR CODE HERE
+    mlflow.sklearn.save_model(sk_pipe, "random_forest_dir")
     ######################################
 
     ######################################
     # Upload the model we just exported to W&B
-    # HINT: use wandb.Artifact to create an artifact. Use args.output_artifact as artifact name, "model_export" as
-    # type, provide a description and add rf_config as metadata. Then, use the .add_dir method of the artifact instance
-    # you just created to add the "random_forest_dir" directory to the artifact, and finally use
+    # HINT: use wandb.Artifact to create an artifact. Use args.output_artifact as artifact name,
+    # "model_export" as type, provide a description and add rf_config as metadata.
+    # Then, use the .add_dir method of the artifact instance you just created to add the
+    # "random_forest_dir" directory to the artifact, and finally use
     # run.log_artifact to log the artifact to the run
-    # YOUR CODE HERE
+    artifact = wandb.Artifact(
+        args.output_artifact,
+        type="model_export",
+        description="Trained random forest pipeline exported in MLflow format",
+        metadata=rf_config,
+    )
+    artifact.add_dir("random_forest_dir")
+    run.log_artifact(artifact)
     ######################################
 
     # Plot feature importance
@@ -116,7 +137,7 @@ def go(args):
     # Here we save r_squared under the "r2" key
     run.summary['r2'] = r_squared
     # Now log the variable "mae" under the key "mae".
-    # YOUR CODE HERE
+    run.summary['mae'] = mae
     ######################################
 
     # Upload to W&B the feture importance visualization
@@ -158,7 +179,10 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     # Build a pipeline with two steps:
     # 1 - A SimpleImputer(strategy="most_frequent") to impute missing values
     # 2 - A OneHotEncoder() step to encode the variable
-    non_ordinal_categorical_preproc =  # YOUR CODE HERE
+    non_ordinal_categorical_preproc = make_pipeline(
+        SimpleImputer(strategy="most_frequent"),
+        OneHotEncoder(),
+    )
     ######################################
 
     # Let's impute the numerical columns to make sure we can handle missing values
@@ -184,11 +208,13 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     )
 
     # Some minimal NLP for the "name" column
-    reshape_to_1d = FunctionTransformer(
-        lambda x: x.squeeze(),
-        validate=False,
-        feature_names_out="one-to-one",
-    )
+    # Disabled: this helper is not used because the same squeeze transformation
+    # is already applied inside name_tfidf, and keeping it active triggers flake8 F841.
+    # reshape_to_1d = FunctionTransformer(
+    #     lambda x: x.squeeze(),
+    #     validate=False,
+    #     feature_names_out="one-to-one",
+    # )
     name_tfidf = make_pipeline(
         SimpleImputer(strategy="constant", fill_value=""),
         FunctionTransformer(
@@ -222,12 +248,18 @@ def get_inference_pipeline(rf_config, max_tfidf_features):
     random_forest = RandomForestRegressor(**rf_config)
 
     ######################################
-    # Create the inference pipeline. The pipeline must have 2 steps: a step called "preprocessor" applying the
-    # ColumnTransformer instance that we saved in the `preprocessor` variable, and a step called "random_forest"
-    # with the random forest instance that we just saved in the `random_forest` variable.
+    # Create the inference pipeline. The pipeline must have 2 steps: a step called
+    # "preprocessor" applying the ColumnTransformer instance that we saved in the
+    # `preprocessor` variable, and a step called "random_forest" with the random
+    # forest instance that we just saved in the `random_forest` variable.
     # HINT: Use the explicit Pipeline constructor so you can assign the names
     # to the steps, do not use make_pipeline
-    sk_pipe =  # YOUR CODE HERE
+    sk_pipe = Pipeline(
+        [
+            ("preprocessor", preprocessor),
+            ("random_forest", random_forest),
+        ]
+    )
 
     return sk_pipe, processed_features
 
