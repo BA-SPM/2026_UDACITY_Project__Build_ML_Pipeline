@@ -2,8 +2,8 @@
 # AUX Workflow: Unit Test
 # Tool:    pytest + pytest-cov
 # Checks:  isolated unit tests pass, coverage report generated
-# Rule:    NO W&B allowed — all data must be mocked in pytest.
-#          W&B is first used in _AUX_06_deployment_test.yml (Deployment layer).
+# Rule:    NO W&B allowed — tests run fully offline via src/data_check/tests_offline/.
+#          W&B integration tests are separate (Deployment layer).
 # ──────────────────────────────────────────────────────────────────
 name: AUX 04 - Unit Test
 
@@ -35,8 +35,8 @@ jobs:
           pip install pytest pytest-cov pandas scipy pytest-mock
 
       - name: Run pytest with coverage
-        # No WANDB_API_KEY — tests must use mocked/local data only.
-        run: pytest src/data_check -m "not wandb" --cov=src --cov-report=xml --cov-report=term-missing
+        # No WANDB_API_KEY — tests run fully offline via tests_offline/data_check/.
+        run: pytest tests_offline/data_check --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
