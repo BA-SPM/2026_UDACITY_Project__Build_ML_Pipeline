@@ -68,9 +68,9 @@ jobs:
       # CI internal toggles (set true/false as needed)
       # W&B rule: CI layer is fully offline — no W&B allowed here.
       lint_enabled:       true
-      typecheck_enabled:  false
+      typecheck_enabled:  true
       smoke_test_enabled: true
-      unit_test_enabled:  false
+      unit_test_enabled:  true
 
   # --------------------------------------------------------------
   # Middle Layer: CT (manual mode ci_ct/full)
