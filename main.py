@@ -26,6 +26,10 @@ _steps = [
 @hydra.main(version_base=None, config_name='config', config_path='.')
 def go(config: DictConfig):
 
+    # Configure tracking to use a local mlruns directory in this repo root.
+    tracking_uri = os.path.join(hydra.utils.get_original_cwd(), "mlruns")
+    mlflow.set_tracking_uri(f"file://{tracking_uri}")
+
     # Setup the wandb experiment. All runs will be grouped under this name
     os.environ["WANDB_PROJECT"] = config["main"]["project_name"]
     os.environ["WANDB_RUN_GROUP"] = config["main"]["experiment_name"]

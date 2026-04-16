@@ -1,4 +1,5 @@
 import wandb
+from wandb.sdk.artifacts.artifact import ArtifactNotLoggedError
 # import mlflow
 
 
@@ -24,7 +25,10 @@ def log_artifact(artifact_name, artifact_type, artifact_description, filename, w
     )
     artifact.add_file(filename)
     wandb_run.log_artifact(artifact)
-    # We need to call this .wait() method before we can use the
-    # version below. This will wait until the artifact is loaded into W&B and a
-    # version is assigned
-    artifact.wait()
+
+    # In online mode this ensures the artifact version is assigned before returning.
+    # In offline mode, Artifact.wait() is not supported, so we ignore that error.
+    try:
+        artifact.wait()
+    except ArtifactNotLoggedError:
+        pass

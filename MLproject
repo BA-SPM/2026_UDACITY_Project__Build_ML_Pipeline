@@ -2,13 +2,9 @@ name: nyc_airbnb
 # NOTE: env_manager set to 'local' for all mlflow.run() calls in main.py.
 # Reason: Corporate firewall blocks conda-forge channel (HTTP 000).
 #
-# For remote execution (mlflow run <github-url>), python_env is used:
-# - Creates a virtualenv with pip (no conda/admin required)
-# - Installs dependencies from requirements.txt
-#
-# Local: python main.py ...               (uses active .venv)
-# Remote: mlflow run <url> -v 1.0.0 ...   (creates virtualenv from python_env)
-python_env: python_env.yaml
+# For local execution, `mlflow run .` will use the Conda environment defined below.
+# The Conda file is the source of truth for the project runtime dependencies.
+conda_env: conda.yml
 
 entry_points:
   main:

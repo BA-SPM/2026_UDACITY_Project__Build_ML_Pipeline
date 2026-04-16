@@ -1,7 +1,7 @@
 # MLflow pip-based environment (no conda required)
 # Used by: mlflow run <url> (default env manager = virtualenv)
-python_env:
-  python: "3.13"
-  build_dependencies:
-    - pip
-  dependencies: "-r requirements.txt"
+python: "/usr/local/python/3.12.1/bin/python3.12"
+build_dependencies:
+  - pip
+dependencies:
+  - "-r requirements.txt"
