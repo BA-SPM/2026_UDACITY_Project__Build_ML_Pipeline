@@ -2,6 +2,7 @@
 # AUX Workflow: Deployment Test
 # Tool:    mlflow + external credential checks
 # Checks:  external dependencies and credentials are valid (W&B, artifacts, mlflow wiring)
+#          before a deployment-capable stage is enabled.
 #
 # Status:  PLACEHOLDER — not yet implemented
 #          Enable deployment_test_enabled in CI_CT_Pipeline_orchestrator.yml
@@ -41,9 +42,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install mlflow wandb hydra-core pandas
 
-      - name: Run deployment test (placeholder)
+      - name: Run deployment readiness gate (placeholder)
         # Replace with external readiness checks once implemented.
-        # Example: verify W&B auth + artifact pull + minimal mlflow command.
-        run: echo "Deployment test not yet implemented. Enable when ready."
+        # Example: verify W&B auth, artifact pull, and a minimal end-to-end command.
+        run: echo "Deployment readiness gate not yet implemented. Enable when ready."
         env:
           WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}

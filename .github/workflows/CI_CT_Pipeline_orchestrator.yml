@@ -1,44 +1,24 @@
-# ================================================================
-# High-Level Orchestrator
-# ================================================================
-# Purpose:
-# - Control execution mode: CI / CI+CT / Full
-# - Delegate details to three middle layers:
-#   1) _ORCHESTRATOR_01_ci.yml
-#   2) _ORCHESTRATOR_02_ct.yml
-#   3) _ORCHESTRATOR_03_deployment_readiness.yml
+# CI/CT/DR Orchestrator
 #
-# Modes:
-# - ci:       Run CI middle layer only
-# - ci_ct:    Run CI middle layer, then CT middle layer (internal integration)
-# - full:     Run CI middle layer, then CT, then Deployment Readiness + E2E
+# How this workflow is controlled:
+# 1) push
+#    - Stage execution is controlled by PUSH_* gates in `env` below.
+# 2) workflow_dispatch (manual run)
+#    - Stage execution is controlled by `mode` (ci / ci_ct / full).
 #
-# Default behavior:
-# - push: run CI only
-# - pull_request: currently disabled (kept below as commented template)
-# - manual dispatch: choose mode from dropdown
-# ================================================================
+# Flow order:
+# CI -> CT -> Deployment Readiness
+# Each stage only runs when the previous stage succeeded.
 name: ORCHESTRATOR 00 - CI/CT/DR Pipeline
 
-# --------------------------------------------------------------
-# Central runner configuration (single source of truth)
-# - Repository variable: OS_MATRIX_JSON
-# - Example value: ["windows-latest", "ubuntu-latest"]
-# - Fallback default (when variable is empty): windows + ubuntu
-# - Repository variable (optional): CI_RUNNER
-# - Example value: ubuntu-latest
-# - Fallback default (when variable is empty): ubuntu-latest
-#
-# Setup in GitHub:
-# - Repository öffnen
-# - Settings
-# - Secrets and variables
-# - Actions
-# - Tab Variables
-# - New repository variable
-# - Name: OS_MATRIX_JSON
-# - Value: ["windows-latest", "ubuntu-latest"]
-# --------------------------------------------------------------
+# Push gates (set to "true" to enable stage on push)
+# - PUSH_CI_ENABLED: allow CI stage on push
+# - PUSH_CT_ENABLED: allow CT stage on push (after CI)
+# - PUSH_DR_ENABLED: allow Deployment Readiness on push (after CT)
+env:
+  PUSH_CI_ENABLED: "true"
+  PUSH_CT_ENABLED: "true"
+  PUSH_DR_ENABLED: "false"
 
 on:
   push:
@@ -50,7 +30,7 @@ on:
       mode:
         description: "Execution mode"
         required: true
-        default: ci
+        default: ci_ct
         type: choice
         options:
           - ci
@@ -58,51 +38,86 @@ on:
           - full
 
 jobs:
-  # --------------------------------------------------------------
-  # Middle Layer: CI (always for push/PR; always for manual mode)
-  # --------------------------------------------------------------
+  # CI layer
+  # Runs when:
+  # - push and PUSH_CI_ENABLED == true
+  # - OR manual workflow_dispatch
   ci_layer:
+    if: >-
+      ${{
+        (
+          github.event_name == 'push'
+          && env.PUSH_CI_ENABLED == 'true'
+        )
+        ||
+        github.event_name == 'workflow_dispatch'
+      }}
     uses: ./.github/workflows/_ORCHESTRATOR_01_ci.yml
     with:
-      runner_os: ${{ vars.CI_RUNNER != '' && vars.CI_RUNNER || 'ubuntu-latest' }}
-      # CI internal toggles (set true/false as needed)
-      # W&B rule: CI layer is fully offline — no W&B allowed here.
+      runner_os: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
       lint_enabled:       true
       typecheck_enabled:  true
       smoke_test_enabled: true
       unit_test_enabled:  true
 
-  # --------------------------------------------------------------
-  # Middle Layer: CT (manual mode ci_ct/full)
-  # CT is OS-independent: runs once on ubuntu-latest only (no matrix)
-  # Internal component integration without external services
-  # --------------------------------------------------------------
+  # CT layer
+  # Runs only if CI succeeded.
+  # Then:
+  # - on push: only when PUSH_CT_ENABLED == true
+  # - on manual run: mode must be ci_ct or full
   ct_layer:
     needs: ci_layer
-    if: ${{ github.event_name == 'workflow_dispatch' && contains(fromJSON('["ci_ct","full"]'), github.event.inputs.mode) && needs.ci_layer.result == 'success' }}
-    # NO MATRIX for CT: all internal integration tests are OS-agnostic
+    if: >-
+      ${{
+        needs.ci_layer.result == 'success'
+        &&
+        (
+          (
+            github.event_name == 'push'
+            && env.PUSH_CT_ENABLED == 'true'
+          )
+          ||
+          (
+            github.event_name == 'workflow_dispatch'
+            && contains(fromJSON('["ci_ct","full"]'), github.event.inputs.mode)
+          )
+        )
+      }}
     uses: ./.github/workflows/_ORCHESTRATOR_02_ct.yml
     with:
-      # CT internal toggles (set true/false as needed)
-      # W&B rule: CT is internal integration only (no external services).
-      ct_integration_test_enabled: false
+      ct_integration_test_enabled: true
 
-  # --------------------------------------------------------------
-  # Middle Layer: Deployment Readiness (manual full)
-  # DR has two sublayers:
-  #   (1) Shared Jobs (Deployment Test, Security) → OS-independent, run once on ubuntu-latest
-  #   (2) Matrix Jobs (Docker, E2E)              → OS-dependent, run on all configured runners
-  # Note: No high-level matrix here. _ORCHESTRATOR_03 receives full os_matrix and splits internally.
-  # --------------------------------------------------------------
+  # Deployment Readiness layer
+  # Runs only if CT succeeded.
+  # Then:
+  # - on push: only when PUSH_DR_ENABLED == true
+  # - on manual run: mode must be full
+  #
+  # os_matrix behavior:
+  # - uses repository variable OS_MATRIX_JSON when provided
+  # - otherwise falls back to ["windows-latest", "ubuntu-latest"]
   deployment_readiness_layer:
     needs: ct_layer
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'full' && needs.ct_layer.result == 'success' }}
-    # NO HIGH-LEVEL MATRIX: _ORCHESTRATOR_03 handles matrix internally
+    if: >-
+      ${{
+        needs.ct_layer.result == 'success'
+        &&
+        (
+          (
+            github.event_name == 'push'
+            && env.PUSH_DR_ENABLED == 'true'
+          )
+          ||
+          (
+            github.event_name == 'workflow_dispatch'
+            && github.event.inputs.mode == 'full'
+          )
+        )
+      }}
     uses: ./.github/workflows/_ORCHESTRATOR_03_deployment_readiness.yml
     with:
-      os_matrix: ${{ vars.OS_MATRIX_JSON != '' && vars.OS_MATRIX_JSON || '["windows-latest", "ubuntu-latest"]' }}
-      # Deployment Readiness internal toggles (set true/false as needed)
-      deployment_test_enabled:  false
+      os_matrix: ${{ vars.OS_MATRIX_JSON || '["windows-latest", "ubuntu-latest"]' }}
+      deployment_test_enabled:  true
       e2e_test_enabled:         false
       security_enabled:         false
       docker_enabled:           false
