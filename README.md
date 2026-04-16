@@ -11,7 +11,7 @@ This repository is a **learning project** created as part of the **Udacity Machi
 ## Important links
 
 - Link to personal GitHub-Repo:  https://github.com/BA-SPM/2026_UDACITY_Project__Build_ML_Pipeline
-- Link to personal W&B:          
+- Link to personal W&B:          https://wandb.ai/ba_spm-dasdad/nyc_airbnb/table?nw=nwuserba_spm    
 
 ## Project Purpose
 
