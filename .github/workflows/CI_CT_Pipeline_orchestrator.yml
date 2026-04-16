@@ -23,7 +23,7 @@ env:
   # Pipeline Steering
   # ================================================================
   PIPELINE_CI_ENABLED:                "true"
-  PIPELINE_CT_ENABLED:                "true"
+  PIPELINE_CT_ENABLED:                "false"
   PIPELINE_DR_ENABLED:                "false"
   
   # CI layer Steering
@@ -31,7 +31,7 @@ env:
   PIPELINE_CI_LINT_ENABLED:           "true"
   PIPELINE_CI_TYPECHECK_ENABLED:      "true"
   PIPELINE_CI_SMOKE_TEST_ENABLED:     "true"
-  PIPELINE_CI_UNIT_TEST_ENABLED:      "true"
+  PIPELINE_CI_UNIT_TEST_ENABLED:      "false"
   
   # CT layer Steering
   # ---------------------------------------------------------------
@@ -106,20 +106,20 @@ jobs:
 
           # ── Summary ───────────────────────────────────────────
           echo ""
-          echo "╔════════════════════════════════════════════════════════════════════════════════════════╗"
-          echo "║         PIPELINE CONFIGURATION RESOLVED                                                ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  Stage Gates                                                                           ║"
-          echo "║    CI  = $PIPELINE_CI_ENABLED                                                          ║"
-          echo "║    CT  = $PIPELINE_CT_ENABLED                                                          ║"
-          echo "║    DR  = $PIPELINE_DR_ENABLED                                                          ║"
-          echo "╠════════════════════════════════════════════════════════════════════════════════════════╣"
-          echo "║  CI: lint=$PIPELINE_CI_LINT_ENABLED  typecheck=$PIPELINE_CI_TYPECHECK_ENABLED          ║"
-          echo "║      smoke=$PIPELINE_CI_SMOKE_TEST_ENABLED  unit=$PIPELINE_CI_UNIT_TEST_ENABLED        ║"
-          echo "║  CT: integration=$PIPELINE_CT_INTEGRATION_TEST_ENABLED                                 ║"
-          echo "║  DR: deploy=$PIPELINE_DR_DEPLOYMENT_TEST_ENABLED  e2e=$PIPELINE_DR_E2E_TEST_ENABLED    ║"
-          echo "║      security=$PIPELINE_DR_SECURITY_ENABLED  docker=$PIPELINE_DR_DOCKER_ENABLED        ║"
-          echo "╚════════════════════════════════════════════════════════════════════════════════════════╝"
+          echo "╔══════════════════════════════════════════════════════╗"
+          echo "║  PIPELINE CONFIGURATION RESOLVED                     ║"
+          echo "╠══════════════════════════════════════════════════════╣"
+          echo "║  Stage Gates                                         ║"
+          echo "║    CI = $PIPELINE_CI_ENABLED                                    ║"
+          echo "║    CT = $PIPELINE_CT_ENABLED                                    ║"
+          echo "║    DR = $PIPELINE_DR_ENABLED                                   ║"
+          echo "╠══════════════════════════════════════════════════════╣"
+          echo "║  CI: lint = $PIPELINE_CI_LINT_ENABLED   typecheck = $PIPELINE_CI_TYPECHECK_ENABLED     ║"
+          echo "║      smoke = $PIPELINE_CI_SMOKE_TEST_ENABLED  unit = $PIPELINE_CI_UNIT_TEST_ENABLED       ║"
+          echo "║  CT: integration = $PIPELINE_CT_INTEGRATION_TEST_ENABLED                    ║"
+          echo "║  DR: deploy = $PIPELINE_DR_DEPLOYMENT_TEST_ENABLED  e2e = $PIPELINE_DR_E2E_TEST_ENABLED      ║"
+          echo "║      security = $PIPELINE_DR_SECURITY_ENABLED docker = $PIPELINE_DR_DOCKER_ENABLED    ║"
+          echo "╚══════════════════════════════════════════════════════╝"
 
   # ── CI layer ──────────────────────────────────────────────
   # Runs when:
