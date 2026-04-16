@@ -8,6 +8,13 @@ This repository is a **learning project** created as part of the **Udacity Machi
 - Added CI-Checks after push
 - Did extensive "full-scale" CI/CT-Pipeline to exercise with this project
 
+## IMPORT usage hint
+
+- For Repo usage:           `mlflow run . -P hydra_options="etl.sample='sample2.csv'"`
+  - Uses the repository `conda.yml` environment.
+- For Windows local usage:  `mlflow run . --env-manager local -P hydra_options="etl.sample='sample2.csv'"`
+  - Uses the current Python environment, so install dependencies manually.
+
 ## Important links
 
 - Link to personal GitHub-Repo:  https://github.com/BA-SPM/2026_UDACITY_Project__Build_ML_Pipeline
