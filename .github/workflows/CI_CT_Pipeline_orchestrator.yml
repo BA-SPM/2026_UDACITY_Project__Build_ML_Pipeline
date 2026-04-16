@@ -1,44 +1,48 @@
-# ================================================================
-# High-Level Orchestrator
-# ================================================================
-# Purpose:
-# - Control execution mode: CI / CI+CT / Full
-# - Delegate details to three middle layers:
-#   1) _ORCHESTRATOR_01_ci.yml
-#   2) _ORCHESTRATOR_02_ct.yml
-#   3) _ORCHESTRATOR_03_deployment_readiness.yml
+# CI/CT/DR Orchestrator
 #
-# Modes:
-# - ci:       Run CI middle layer only
-# - ci_ct:    Run CI middle layer, then CT middle layer (internal integration)
-# - full:     Run CI middle layer, then CT, then Deployment Readiness + E2E
+# How this workflow is controlled:
+# 1) push
+#    - Stage execution is controlled by PUSH_* gates in `env` below.
+#    - Individual test flags are also set here.
+# 2) workflow_dispatch (manual run)
+#    - Stage execution is controlled by `mode` (ci / ci_ct / full).
 #
-# Default behavior:
-# - push: run CI only
-# - pull_request: currently disabled (kept below as commented template)
-# - manual dispatch: choose mode from dropdown
-# ================================================================
+# Flow order:
+# CI -> CT -> Deployment Readiness
+# Each stage only runs when the previous stage succeeded.
+#
+# NOTE: `env` is NOT available in job-level `if` expressions.
+# Only `github`, `needs`, `vars`, `secrets`, `inputs` are.
+# Therefore, a lightweight `config` job reads env values in a step
+# (where `env` IS available) and exposes them as job outputs.
 name: ORCHESTRATOR 00 - CI/CT/DR Pipeline
 
-# --------------------------------------------------------------
-# Central runner configuration (single source of truth)
-# - Repository variable: OS_MATRIX_JSON
-# - Example value: ["windows-latest", "ubuntu-latest"]
-# - Fallback default (when variable is empty): windows + ubuntu
-# - Repository variable (optional): CI_RUNNER
-# - Example value: ubuntu-latest
-# - Fallback default (when variable is empty): ubuntu-latest
-#
-# Setup in GitHub:
-# - Repository öffnen
-# - Settings
-# - Secrets and variables
-# - Actions
-# - Tab Variables
-# - New repository variable
-# - Name: OS_MATRIX_JSON
-# - Value: ["windows-latest", "ubuntu-latest"]
-# --------------------------------------------------------------
+# ── Push gates ──────────────────────────────────────────────
+# Set to "true" / "false" to enable/disable stages on push.
+env:
+  # Pipeline Steering
+  # ================================================================
+  PIPELINE_CI_ENABLED:                "true"
+  PIPELINE_CT_ENABLED:                "false"
+  PIPELINE_DR_ENABLED:                "false"
+  
+  # CI layer Steering
+  # ---------------------------------------------------------------
+  PIPELINE_CI_LINT_ENABLED:           "true"
+  PIPELINE_CI_TYPECHECK_ENABLED:      "true"
+  PIPELINE_CI_SMOKE_TEST_ENABLED:     "true"
+  PIPELINE_CI_UNIT_TEST_ENABLED:      "false"
+  
+  # CT layer Steering
+  # ---------------------------------------------------------------
+  PIPELINE_CT_INTEGRATION_TEST_ENABLED: "true"
+  
+  # DR layer Steering
+  # ---------------------------------------------------------------
+  PIPELINE_DR_DEPLOYMENT_TEST_ENABLED: "true"
+  PIPELINE_DR_E2E_TEST_ENABLED:        "false"
+  PIPELINE_DR_SECURITY_ENABLED:        "false"
+  PIPELINE_DR_DOCKER_ENABLED:          "false"
 
 on:
   push:
@@ -50,7 +54,7 @@ on:
       mode:
         description: "Execution mode"
         required: true
-        default: ci
+        default: ci_ct
         type: choice
         options:
           - ci
@@ -58,51 +62,146 @@ on:
           - full
 
 jobs:
-  # --------------------------------------------------------------
-  # Middle Layer: CI (always for push/PR; always for manual mode)
-  # --------------------------------------------------------------
+  # ── Config job ────────────────────────────────────────────
+  # Bridge: reads workflow-level `env` (available in steps)
+  # and exposes values as job outputs (available in job-level `if`).
+  resolve_pipeline_config:
+    runs-on: ubuntu-latest
+    outputs:
+      push_ci:             ${{ steps.flags.outputs.push_ci }}
+      push_ct:             ${{ steps.flags.outputs.push_ct }}
+      push_dr:             ${{ steps.flags.outputs.push_dr }}
+      ci_lint:             ${{ steps.flags.outputs.ci_lint }}
+      ci_typecheck:        ${{ steps.flags.outputs.ci_typecheck }}
+      ci_smoke_test:       ${{ steps.flags.outputs.ci_smoke_test }}
+      ci_unit_test:        ${{ steps.flags.outputs.ci_unit_test }}
+      ct_integration_test: ${{ steps.flags.outputs.ct_integration_test }}
+      dr_deployment_test:  ${{ steps.flags.outputs.dr_deployment_test }}
+      dr_e2e_test:         ${{ steps.flags.outputs.dr_e2e_test }}
+      dr_security:         ${{ steps.flags.outputs.dr_security }}
+      dr_docker:           ${{ steps.flags.outputs.dr_docker }}
+    steps:
+      - name: Export flags
+        id: flags
+        run: |
+          # ── Pipeline Stage Gates ──────────────────────────────
+          echo "push_ci=$PIPELINE_CI_ENABLED"                               >> "$GITHUB_OUTPUT"
+          echo "push_ct=$PIPELINE_CT_ENABLED"                               >> "$GITHUB_OUTPUT"
+          echo "push_dr=$PIPELINE_DR_ENABLED"                               >> "$GITHUB_OUTPUT"
+
+          # ── CI Layer Flags ────────────────────────────────────
+          echo "ci_lint=$PIPELINE_CI_LINT_ENABLED"                          >> "$GITHUB_OUTPUT"
+          echo "ci_typecheck=$PIPELINE_CI_TYPECHECK_ENABLED"                >> "$GITHUB_OUTPUT"
+          echo "ci_smoke_test=$PIPELINE_CI_SMOKE_TEST_ENABLED"              >> "$GITHUB_OUTPUT"
+          echo "ci_unit_test=$PIPELINE_CI_UNIT_TEST_ENABLED"                >> "$GITHUB_OUTPUT"
+
+          # ── CT Layer Flags ────────────────────────────────────
+          echo "ct_integration_test=$PIPELINE_CT_INTEGRATION_TEST_ENABLED"  >> "$GITHUB_OUTPUT"
+
+          # ── DR Layer Flags ────────────────────────────────────
+          echo "dr_deployment_test=$PIPELINE_DR_DEPLOYMENT_TEST_ENABLED"    >> "$GITHUB_OUTPUT"
+          echo "dr_e2e_test=$PIPELINE_DR_E2E_TEST_ENABLED"                 >> "$GITHUB_OUTPUT"
+          echo "dr_security=$PIPELINE_DR_SECURITY_ENABLED"                 >> "$GITHUB_OUTPUT"
+          echo "dr_docker=$PIPELINE_DR_DOCKER_ENABLED"                     >> "$GITHUB_OUTPUT"
+
+          # ── Summary ───────────────────────────────────────────
+          echo ""
+          echo "╔══════════════════════════════════════════════════════╗"
+          echo "║  PIPELINE CONFIGURATION RESOLVED                     ║"
+          echo "╠══════════════════════════════════════════════════════╣"
+          echo "║  Stage Gates                                         ║"
+          echo "║    CI = $PIPELINE_CI_ENABLED                                    ║"
+          echo "║    CT = $PIPELINE_CT_ENABLED                                    ║"
+          echo "║    DR = $PIPELINE_DR_ENABLED                                   ║"
+          echo "╠══════════════════════════════════════════════════════╣"
+          echo "║  CI: lint = $PIPELINE_CI_LINT_ENABLED   typecheck = $PIPELINE_CI_TYPECHECK_ENABLED     ║"
+          echo "║      smoke = $PIPELINE_CI_SMOKE_TEST_ENABLED  unit = $PIPELINE_CI_UNIT_TEST_ENABLED       ║"
+          echo "║  CT: integration = $PIPELINE_CT_INTEGRATION_TEST_ENABLED                    ║"
+          echo "║  DR: deploy = $PIPELINE_DR_DEPLOYMENT_TEST_ENABLED  e2e = $PIPELINE_DR_E2E_TEST_ENABLED      ║"
+          echo "║      security = $PIPELINE_DR_SECURITY_ENABLED docker = $PIPELINE_DR_DOCKER_ENABLED    ║"
+          echo "╚══════════════════════════════════════════════════════╝"
+
+  # ── CI layer ──────────────────────────────────────────────
+  # Runs when:
+  # - push and PUSH_CI_ENABLED == true
+  # - OR manual workflow_dispatch
   ci_layer:
+    needs: resolve_pipeline_config
+    if: >-
+      ${{
+        (
+          github.event_name == 'push'
+          && needs.resolve_pipeline_config.outputs.push_ci == 'true'
+        )
+        ||
+        github.event_name == 'workflow_dispatch'
+      }}
     uses: ./.github/workflows/_ORCHESTRATOR_01_ci.yml
     with:
-      runner_os: ${{ vars.CI_RUNNER != '' && vars.CI_RUNNER || 'ubuntu-latest' }}
-      # CI internal toggles (set true/false as needed)
-      # W&B rule: CI layer is fully offline — no W&B allowed here.
-      lint_enabled:       true
-      typecheck_enabled:  true
-      smoke_test_enabled: true
-      unit_test_enabled:  true
+      runner_os: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+      lint_enabled:       ${{ needs.resolve_pipeline_config.outputs.ci_lint == 'true' }}
+      typecheck_enabled:  ${{ needs.resolve_pipeline_config.outputs.ci_typecheck == 'true' }}
+      smoke_test_enabled: ${{ needs.resolve_pipeline_config.outputs.ci_smoke_test == 'true' }}
+      unit_test_enabled:  ${{ needs.resolve_pipeline_config.outputs.ci_unit_test == 'true' }}
 
-  # --------------------------------------------------------------
-  # Middle Layer: CT (manual mode ci_ct/full)
-  # CT is OS-independent: runs once on ubuntu-latest only (no matrix)
-  # Internal component integration without external services
-  # --------------------------------------------------------------
+  # ── CT layer ──────────────────────────────────────────────
+  # Runs only if CI succeeded.
+  # Then:
+  # - on push: only when PUSH_CT_ENABLED == true
+  # - on manual run: mode must be ci_ct or full
   ct_layer:
-    needs: ci_layer
-    if: ${{ github.event_name == 'workflow_dispatch' && contains(fromJSON('["ci_ct","full"]'), github.event.inputs.mode) && needs.ci_layer.result == 'success' }}
-    # NO MATRIX for CT: all internal integration tests are OS-agnostic
+    needs: [resolve_pipeline_config, ci_layer]
+    if: >-
+      ${{
+        needs.ci_layer.result == 'success'
+        &&
+        (
+          (
+            github.event_name == 'push'
+            && needs.resolve_pipeline_config.outputs.push_ct == 'true'
+          )
+          ||
+          (
+            github.event_name == 'workflow_dispatch'
+            && contains(fromJSON('["ci_ct","full"]'), github.event.inputs.mode)
+          )
+        )
+      }}
     uses: ./.github/workflows/_ORCHESTRATOR_02_ct.yml
     with:
-      # CT internal toggles (set true/false as needed)
-      # W&B rule: CT is internal integration only (no external services).
-      ct_integration_test_enabled: false
+      ct_integration_test_enabled: ${{ needs.resolve_pipeline_config.outputs.ct_integration_test == 'true' }}
 
-  # --------------------------------------------------------------
-  # Middle Layer: Deployment Readiness (manual full)
-  # DR has two sublayers:
-  #   (1) Shared Jobs (Deployment Test, Security) → OS-independent, run once on ubuntu-latest
-  #   (2) Matrix Jobs (Docker, E2E)              → OS-dependent, run on all configured runners
-  # Note: No high-level matrix here. _ORCHESTRATOR_03 receives full os_matrix and splits internally.
-  # --------------------------------------------------------------
+  # ── Deployment Readiness layer ────────────────────────────
+  # Runs only if CT succeeded.
+  # Then:
+  # - on push: only when PUSH_DR_ENABLED == true
+  # - on manual run: mode must be full
+  #
+  # os_matrix behavior:
+  # - uses repository variable OS_MATRIX_JSON when provided
+  # - otherwise falls back to ["windows-latest", "ubuntu-latest"]
   deployment_readiness_layer:
-    needs: ct_layer
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'full' && needs.ct_layer.result == 'success' }}
-    # NO HIGH-LEVEL MATRIX: _ORCHESTRATOR_03 handles matrix internally
+    needs: [resolve_pipeline_config, ct_layer]
+    if: >-
+      ${{
+        needs.ct_layer.result == 'success'
+        &&
+        (
+          (
+            github.event_name == 'push'
+            && needs.resolve_pipeline_config.outputs.push_dr == 'true'
+          )
+          ||
+          (
+            github.event_name == 'workflow_dispatch'
+            && github.event.inputs.mode == 'full'
+          )
+        )
+      }}
     uses: ./.github/workflows/_ORCHESTRATOR_03_deployment_readiness.yml
     with:
-      os_matrix: ${{ vars.OS_MATRIX_JSON != '' && vars.OS_MATRIX_JSON || '["windows-latest", "ubuntu-latest"]' }}
-      # Deployment Readiness internal toggles (set true/false as needed)
-      deployment_test_enabled:  false
-      e2e_test_enabled:         false
-      security_enabled:         false
-      docker_enabled:           false
+      os_matrix: ${{ vars.OS_MATRIX_JSON || '["windows-latest", "ubuntu-latest"]' }}
+      deployment_test_enabled:  ${{ needs.resolve_pipeline_config.outputs.dr_deployment_test == 'true' }}
+      e2e_test_enabled:         ${{ needs.resolve_pipeline_config.outputs.dr_e2e_test == 'true' }}
+      security_enabled:         ${{ needs.resolve_pipeline_config.outputs.dr_security == 'true' }}
+      docker_enabled:           ${{ needs.resolve_pipeline_config.outputs.dr_docker == 'true' }}

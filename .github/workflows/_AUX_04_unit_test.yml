@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -35,11 +35,12 @@ jobs:
           pip install pytest pytest-cov pandas scipy pytest-mock
 
       - name: Run pytest with coverage
-        # No WANDB_API_KEY — tests run fully offline via tests_offline/data_check/.
-        run: pytest tests_offline/data_check --cov=src --cov-report=xml --cov-report=term-missing
+        # Offline fixtures execute the online data-check assertions without W&B.
+        run: pytest tests_offline/data_check --cov=src.data_check.test_data --cov-report=xml:coverage.xml --cov-report=term-missing
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.xml
+          if-no-files-found: error

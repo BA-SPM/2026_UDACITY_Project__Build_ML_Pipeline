@@ -2,7 +2,7 @@
 # Reusable Workflow: Type Check
 # Tool:    mypy
 # Checks:  static type annotations
-# Scope:   src/data_check only (stable code; train step has placeholders)
+# Scope:   full project code paths
 # ──────────────────────────────────────────────────────────────────
 name: AUX 02 - Type Check
 
@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -35,4 +35,4 @@ jobs:
 
       - name: Run mypy
         # --ignore-missing-imports: skip errors for packages without type stubs
-        run: mypy src/data_check --ignore-missing-imports
+        run: mypy --explicit-package-bases main.py src components tests_offline --ignore-missing-imports
